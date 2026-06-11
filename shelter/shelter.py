@@ -33,6 +33,15 @@ class IntakeResult(NamedTuple):
     adopter: str | None
 
 
+class AdoptionRecord(NamedTuple):
+    """One completed adoption, kept in the shelter's log."""
+
+    animal_type: str
+    animal_name: str
+    adopter: str
+    on_arrival: bool
+
+
 class Shelter:
     """An animal shelter holding up to `capacity` kennels."""
 
@@ -47,6 +56,7 @@ class Shelter:
         self.capacity = capacity
         self.kennels: list[Kennel] = []
         self.waiting_list: dict[str, list[str]] = {name: [] for name in ANIMAL_TYPES}
+        self.adoptions: list[AdoptionRecord] = []
 
     def is_full(self) -> bool:
         """Return True when no more kennels can be added."""
@@ -73,6 +83,7 @@ class Shelter:
         validate_animal(animal)
         adopter = self._pop_waiting_adopter(type(animal).__name__)
         if adopter is not None:
+            self._record_adoption(animal, adopter, on_arrival=True)
             return IntakeResult(kennel_number=None, adopter=adopter)
         kennel = self._find_empty_kennel() or self._build_kennel()
         kennel.add_animal(animal)
@@ -82,6 +93,14 @@ class Shelter:
         """Dequeue the first adopter waiting for this type, if any."""
         waiting = self.waiting_list[animal_type]
         return waiting.pop(0) if waiting else None
+
+    def _record_adoption(
+        self, animal: AllowedAnimal, adopter: str, on_arrival: bool
+    ) -> None:
+        """Append a completed adoption to the shelter's log."""
+        self.adoptions.append(
+            AdoptionRecord(type(animal).__name__, animal.name, adopter, on_arrival)
+        )
 
     def adopt(self, animal_type: str, adopter: str) -> AllowedAnimal | None:
         """Adopt an animal of the requested type out of the shelter.
@@ -100,7 +119,9 @@ class Shelter:
         if kennel is None:
             self.waiting_list[normalized].append(adopter)
             return None
-        return kennel.remove_animal()
+        animal = kennel.remove_animal()
+        self._record_adoption(animal, adopter, on_arrival=False)
+        return animal
 
     def _find_empty_kennel(self) -> Kennel | None:
         """Return the first empty kennel, or None when all are occupied."""

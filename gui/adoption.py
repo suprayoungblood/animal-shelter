@@ -17,8 +17,7 @@ WAITING_WIDTHS = {
     "type":    110,
     "waiting": 300,
 }
-TREE_ARROW_WIDTH = 36
-WAITING_ROWS_SHOWN = 6
+WAITING_ROWS_SHOWN = 4
 EMPTY_MESSAGE = "No one is waiting."
 
 
@@ -101,10 +100,10 @@ class AdoptionForm(ttk.LabelFrame):
 
 
 class WaitingListView(ttk.LabelFrame):
-    """A card-styled, expandable view of waiting adopters by type.
+    """A card-styled summary of waiting adopters by type.
 
     Only animal types with at least one waiter get a row. Each row shows
-    the count of waiting adopters; clicking the row expands it to list
+    the count of waiting adopters; clicking the row opens a modal listing
     the adopters in first-come, first-served order.
     """
 
@@ -116,44 +115,101 @@ class WaitingListView(ttk.LabelFrame):
         super().__init__(parent, text="  Waiting List  ", style="Card.TLabelframe")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
+        self._waiting: dict[str, list[str]] = {}
         self._tree = self._build_tree()
         self._tree.grid(row=0, column=0, sticky="nsew", padx=PAD, pady=PAD)
 
     def _build_tree(self) -> ttk.Treeview:
-        """Create and configure the expandable Treeview widget."""
+        """Create and configure the Treeview widget."""
         tree = ttk.Treeview(
             self,
             columns=WAITING_COLUMNS,
-            show="tree headings",
+            show="headings",
             style="Kennel.Treeview",
             selectmode="none",
             height=WAITING_ROWS_SHOWN,
         )
-        tree.heading("#0", text="")
-        tree.column("#0", width=TREE_ARROW_WIDTH, stretch=False)
         for col in WAITING_COLUMNS:
             tree.heading(col, text=WAITING_HEADINGS[col], anchor="w")
             tree.column(col, width=WAITING_WIDTHS[col], anchor="w")
-        tree.bind("<Button-1>", self._toggle_row)
+        tree.bind("<Button-1>", self._open_adopters_modal)
         return tree
 
     def refresh(self, waiting_list: dict[str, list[str]]) -> None:
-        """Redraw the panel: one expandable row per type with waiters."""
+        """Redraw the panel: one row per type with waiters."""
+        self._waiting = {t: list(names) for t, names in waiting_list.items() if names}
         self._tree.delete(*self._tree.get_children())
-        populated = {t: names for t, names in waiting_list.items() if names}
-        if not populated:
+        if not self._waiting:
             self._tree.insert("", "end", values=("", EMPTY_MESSAGE))
             return
-        for animal_type, adopters in populated.items():
-            row = self._tree.insert(
-                "", "end", values=(animal_type, f"{len(adopters)} waiting")
-            )
-            for position, name in enumerate(adopters, start=1):
-                self._tree.insert(row, "end", values=("", f"{position}. {name}"))
+        for animal_type, adopters in self._waiting.items():
+            count = len(adopters)
+            label = f"{count} waiting — click to view"
+            self._tree.insert("", "end", values=(animal_type, label))
 
-    def _toggle_row(self, event) -> str:
-        """Expand or collapse the clicked type row to show adopter names."""
+    def _open_adopters_modal(self, event) -> str:
+        """Open a modal listing the clicked type's waiting adopters."""
         item = self._tree.identify_row(event.y)
-        if item and not self._tree.parent(item) and self._tree.get_children(item):
-            self._tree.item(item, open=not self._tree.item(item, "open"))
+        if item:
+            animal_type = self._tree.item(item, "values")[0]
+            adopters = self._waiting.get(animal_type)
+            if adopters:
+                AdoptersModal(self, animal_type, adopters)
         return "break"
+
+
+class AdoptersModal(tk.Toplevel):
+    """A small modal dialog listing one type's waiting adopters in order."""
+
+    def __init__(self, parent, animal_type: str, adopters: list[str]):
+        """Build and show the dialog centered over the main window.
+
+        :param parent: The widget the dialog was opened from.
+        :param animal_type: The animal type whose waiters are shown.
+        :param adopters: Adopter names in first-come, first-served order.
+        """
+        super().__init__(parent)
+        self.title(f"{animal_type} Waiting List")
+        self.configure(bg=PALETTE["panel"])
+        self.resizable(False, False)
+        self._build(animal_type, adopters)
+        self._center_over(parent.winfo_toplevel())
+        self.transient(parent.winfo_toplevel())
+        self.bind("<Escape>", lambda _: self.destroy())
+        try:
+            self.grab_set()
+        except tk.TclError:
+            pass  # window not yet viewable (e.g. headless tests)
+
+    def _build(self, animal_type: str, adopters: list[str]) -> None:
+        """Construct the header, the numbered name list, and Close."""
+        tk.Label(
+            self,
+            text=f"Waiting for a {animal_type}",
+            bg=PALETTE["panel"],
+            fg=PALETTE["accent"],
+            font=FONTS["h2"],
+            anchor="w",
+        ).pack(fill="x", padx=PAD, pady=(PAD, 4))
+        for position, name in enumerate(adopters, start=1):
+            tk.Label(
+                self,
+                text=f"{position}. {name}",
+                bg=PALETTE["panel"],
+                fg=PALETTE["text"],
+                font=FONTS["body"],
+                anchor="w",
+            ).pack(fill="x", padx=PAD * 2)
+        ttk.Button(
+            self,
+            text="Close",
+            style="Accent.TButton",
+            command=self.destroy,
+        ).pack(fill="x", padx=PAD, pady=PAD)
+
+    def _center_over(self, window: tk.Misc) -> None:
+        """Position the dialog over the center of the given window."""
+        self.update_idletasks()
+        x = window.winfo_rootx() + (window.winfo_width() - self.winfo_width()) // 2
+        y = window.winfo_rooty() + (window.winfo_height() - self.winfo_height()) // 3
+        self.geometry(f"+{max(x, 0)}+{max(y, 0)}")

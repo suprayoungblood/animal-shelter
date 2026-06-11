@@ -141,6 +141,46 @@ class TestWaitingListFulfillment(unittest.TestCase):
         self.assertIsNone(result.adopter)
 
 
+class TestAdoptionLog(unittest.TestCase):
+    """Tests for the shelter's adoption history."""
+
+    def setUp(self):
+        """Create a shelter housing one dog."""
+        self.shelter = Shelter(3)
+        self.shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
+
+    def test_kennel_adoption_is_logged(self):
+        """Adopting from a kennel appends a record with on_arrival False."""
+        self.shelter.adopt("Dog", "Avery")
+        record = self.shelter.adoptions[0]
+        self.assertEqual(
+            (record.animal_type, record.animal_name, record.adopter),
+            ("Dog", "Charlie", "Avery"),
+        )
+        self.assertFalse(record.on_arrival)
+
+    def test_arrival_adoption_is_logged(self):
+        """A waitlist-fulfilled intake appends a record with on_arrival True."""
+        self.shelter.adopt("Cat", "Blake")
+        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        record = self.shelter.adoptions[0]
+        self.assertEqual(record.adopter, "Blake")
+        self.assertTrue(record.on_arrival)
+
+    def test_waitlisting_is_not_logged(self):
+        """Joining the waiting list is not an adoption."""
+        self.shelter.adopt("Cat", "Blake")
+        self.assertEqual(self.shelter.adoptions, [])
+
+    def test_log_preserves_order(self):
+        """Records accumulate in the order the adoptions happened."""
+        self.shelter.adopt("Dog", "Avery")
+        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        self.shelter.adopt("Cat", "Casey")
+        adopters = [record.adopter for record in self.shelter.adoptions]
+        self.assertEqual(adopters, ["Avery", "Casey"])
+
+
 class TestShelterReporting(unittest.TestCase):
     """Tests for occupancy reporting helpers."""
 

@@ -30,7 +30,7 @@ Use this table to find any assignment requirement in the code.
 | Overloaded constructor / `__str__` (all classes) | `__init__` defaults and `__str__` in each class |
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
-| Unit tests | `tests/` — 46 tests across animals, kennel, and shelter |
+| Unit tests | `tests/` — 50 tests across animals, kennel, and shelter |
 | Main driver | `demo.py` (console) and `main.py` (GUI) |
 
 ---
@@ -73,6 +73,8 @@ Owns the kennels and enforces every shelter rule:
   returns it; **the kennel stays** in the shelter for reuse. If no animal of
   that type is housed, the adopter joins that type's **waiting list** (FIFO)
   and `None` is returned. Type matching is case-insensitive via a lookup table.
+- **`adoptions`** — every completed adoption (from a kennel or on arrival) is
+  recorded as an `AdoptionRecord`, giving both UIs an adoption log.
 
 ---
 
@@ -96,7 +98,7 @@ python3 cli.py
 ```
 
 Menu-driven: set the shelter capacity, add Dogs/Cats/Birds, view all kennels
-(occupied and empty), adopt by type, and view the waiting list.
+(occupied and empty), adopt by type, and view the waiting list and adoption log.
 
 ### 3. Desktop GUI
 
@@ -108,8 +110,9 @@ macOS usually does **not**; the official **python.org** build does.
 ```
 
 …or any `python3` for which `python3 -c "import tkinter"` succeeds. The window
-has an intake form and an adoption form on the left, with the kennel list and
-waiting list on the right.
+has the intake and adoption forms on the left, with the kennel list, waiting
+list, and adoption log on the right — every panel resizes with the window.
+Clicking a waiting-list row opens a dialog naming the adopters in line.
 
 ---
 
@@ -119,7 +122,7 @@ waiting list on the right.
 python3 -m unittest discover -s tests -v
 ```
 
-**46 tests, all passing.** They verify:
+**50 tests, all passing.** They verify:
 
 - each animal constructor, default arguments, and `__str__` format
 - the one-animal-per-kennel rule, `remove_animal()`, and `is_empty()`
@@ -156,7 +159,8 @@ Animal/
 ├── gui/                    # Tkinter desktop front end
 │   ├── app.py              # Main window
 │   ├── forms.py            # Animal intake form
-│   ├── adoption.py         # Adoption form + waiting list panel
+│   ├── adoption.py         # Adoption form + waiting list panel + adopters dialog
+│   ├── adoption_log.py     # History of completed adoptions
 │   ├── kennel_list.py      # List of all kennels
 │   └── styles.py           # Colors / fonts / theme
 ├── ui/console.py           # Console formatting helpers used by cli.py

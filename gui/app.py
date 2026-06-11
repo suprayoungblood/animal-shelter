@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from gui.adoption import AdoptionForm, WaitingListView
+from gui.adoption_log import AdoptionLogView
 from gui.forms import AnimalForm
 from gui.kennel_list import KennelList
 from gui.styles import FONTS, PAD, PALETTE, WINDOW_SIZE, apply_theme
@@ -22,7 +23,7 @@ class AnimalShelterApp(tk.Tk):
         super().__init__()
         self.title(APP_TITLE)
         self.geometry(WINDOW_SIZE)
-        self.minsize(880, 620)
+        self.minsize(720, 540)
         apply_theme(self)
         self._shelter = Shelter(SHELTER_CAPACITY)
         self._status_var = tk.StringVar(value="Ready.")
@@ -49,10 +50,14 @@ class AnimalShelterApp(tk.Tk):
         return frame
 
     def _build_body(self) -> ttk.Frame:
-        """Two-column body: forms on the left, lists on the right."""
+        """Two-column body: forms on the left, lists on the right.
+
+        Both columns carry grid weights so every panel grows and shrinks
+        with the window.
+        """
         body = ttk.Frame(self, style="App.TFrame")
-        body.columnconfigure(0, weight=0, minsize=320)
-        body.columnconfigure(1, weight=1)
+        body.columnconfigure(0, weight=1, minsize=300)
+        body.columnconfigure(1, weight=3)
         body.rowconfigure(0, weight=1)
         self._build_forms(body).grid(row=0, column=0, sticky="nsew", padx=(0, PAD))
         self._build_lists(body).grid(row=0, column=1, sticky="nsew")
@@ -62,6 +67,7 @@ class AnimalShelterApp(tk.Tk):
         """Left column: animal intake form above the adoption form."""
         column = ttk.Frame(parent, style="App.TFrame")
         column.columnconfigure(0, weight=1)
+        column.rowconfigure(2, weight=1)
         form = AnimalForm(column, on_submit=self._handle_add)
         adoption = AdoptionForm(column, on_adopt=self._handle_adopt)
         form.grid(row=0, column=0, sticky="new", pady=(0, PAD))
@@ -69,14 +75,18 @@ class AnimalShelterApp(tk.Tk):
         return column
 
     def _build_lists(self, parent: ttk.Frame) -> ttk.Frame:
-        """Right column: kennel list above the waiting list."""
+        """Right column: kennels, waiting list, and adoption log stacked."""
         column = ttk.Frame(parent, style="App.TFrame")
         column.columnconfigure(0, weight=1)
-        column.rowconfigure(0, weight=1)
+        column.rowconfigure(0, weight=3)
+        column.rowconfigure(1, weight=1)
+        column.rowconfigure(2, weight=1)
         self._kennel_list = KennelList(column)
         self._waiting_view = WaitingListView(column)
+        self._log_view = AdoptionLogView(column)
         self._kennel_list.grid(row=0, column=0, sticky="nsew", pady=(0, PAD))
-        self._waiting_view.grid(row=1, column=0, sticky="ew")
+        self._waiting_view.grid(row=1, column=0, sticky="nsew", pady=(0, PAD))
+        self._log_view.grid(row=2, column=0, sticky="nsew")
         return column
 
     def _build_status(self) -> tk.Label:
@@ -93,9 +103,10 @@ class AnimalShelterApp(tk.Tk):
         )
 
     def _refresh(self) -> None:
-        """Redraw both lists from the shelter's current state."""
+        """Redraw every list from the shelter's current state."""
         self._kennel_list.refresh(self._shelter.kennels)
         self._waiting_view.refresh(self._shelter.waiting_list)
+        self._log_view.refresh(self._shelter.adoptions)
 
     def _handle_add(self, animal) -> None:
         """Take in the new animal and refresh the lists."""

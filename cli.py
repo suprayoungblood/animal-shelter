@@ -121,6 +121,21 @@ def view_waiting_list(shelter: Shelter) -> None:
     divider()
 
 
+def view_adoption_log(shelter: Shelter) -> None:
+    """Print every completed adoption, oldest first."""
+    title("Adoption Log")
+    if not shelter.adoptions:
+        info("No adoptions yet.")
+        return
+    for index, record in enumerate(shelter.adoptions, start=1):
+        how = "on arrival" if record.on_arrival else "from a kennel"
+        print(
+            f"  {index}. {record.animal_type} '{record.animal_name}' "
+            f"adopted by {record.adopter} ({how})"
+        )
+    divider()
+
+
 def build_actions() -> dict[str, tuple[str, Callable[[Shelter], None]]]:
     """Assemble the menu key -> (label, action) table dynamically."""
     actions: dict[str, tuple[str, Callable[[Shelter], None]]] = {}
@@ -134,6 +149,7 @@ def build_actions() -> dict[str, tuple[str, Callable[[Shelter], None]]]:
         ("View all kennels", view_kennels),
         ("Adopt an animal", adopt_animal),
         ("View waiting list", view_waiting_list),
+        ("View adoption log", view_adoption_log),
     ):
         actions[str(len(actions) + 1)] = (label, action)
     return actions
