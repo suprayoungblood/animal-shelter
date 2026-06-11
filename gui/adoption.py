@@ -8,15 +8,18 @@ from typing import Callable
 from animals import ANIMAL_TYPES
 from gui.styles import FONTS, PAD, PALETTE
 
-WAITING_COLUMNS = ("type", "adopters")
+WAITING_COLUMNS = ("type", "waiting")
 WAITING_HEADINGS = {
-    "type":     "Animal Type",
-    "adopters": "Waiting Adopters",
+    "type":    "Animal Type",
+    "waiting": "Waiting Adopters",
 }
 WAITING_WIDTHS = {
-    "type":     110,
-    "adopters": 320,
+    "type":    110,
+    "waiting": 300,
 }
+TREE_ARROW_WIDTH = 36
+WAITING_ROWS_SHOWN = 6
+EMPTY_MESSAGE = "No one is waiting."
 
 
 class AdoptionForm(ttk.LabelFrame):
@@ -98,7 +101,12 @@ class AdoptionForm(ttk.LabelFrame):
 
 
 class WaitingListView(ttk.LabelFrame):
-    """A card-styled Treeview of each animal type's waiting adopters."""
+    """A card-styled, expandable view of waiting adopters by type.
+
+    Only animal types with at least one waiter get a row. Each row shows
+    the count of waiting adopters; clicking the row expands it to list
+    the adopters in first-come, first-served order.
+    """
 
     def __init__(self, parent):
         """Render the waiting list panel.
@@ -112,23 +120,40 @@ class WaitingListView(ttk.LabelFrame):
         self._tree.grid(row=0, column=0, sticky="nsew", padx=PAD, pady=PAD)
 
     def _build_tree(self) -> ttk.Treeview:
-        """Create and configure the Treeview widget."""
+        """Create and configure the expandable Treeview widget."""
         tree = ttk.Treeview(
             self,
             columns=WAITING_COLUMNS,
-            show="headings",
+            show="tree headings",
             style="Kennel.Treeview",
             selectmode="none",
-            height=len(ANIMAL_TYPES),
+            height=WAITING_ROWS_SHOWN,
         )
+        tree.heading("#0", text="")
+        tree.column("#0", width=TREE_ARROW_WIDTH, stretch=False)
         for col in WAITING_COLUMNS:
             tree.heading(col, text=WAITING_HEADINGS[col], anchor="w")
             tree.column(col, width=WAITING_WIDTHS[col], anchor="w")
+        tree.bind("<Button-1>", self._toggle_row)
         return tree
 
     def refresh(self, waiting_list: dict[str, list[str]]) -> None:
-        """Redraw the panel from the shelter's waiting list mapping."""
+        """Redraw the panel: one expandable row per type with waiters."""
         self._tree.delete(*self._tree.get_children())
-        for animal_type, adopters in waiting_list.items():
-            names = ", ".join(adopters) if adopters else "—"
-            self._tree.insert("", "end", values=(animal_type, names))
+        populated = {t: names for t, names in waiting_list.items() if names}
+        if not populated:
+            self._tree.insert("", "end", values=("", EMPTY_MESSAGE))
+            return
+        for animal_type, adopters in populated.items():
+            row = self._tree.insert(
+                "", "end", values=(animal_type, f"{len(adopters)} waiting")
+            )
+            for position, name in enumerate(adopters, start=1):
+                self._tree.insert(row, "end", values=("", f"{position}. {name}"))
+
+    def _toggle_row(self, event) -> str:
+        """Expand or collapse the clicked type row to show adopter names."""
+        item = self._tree.identify_row(event.y)
+        if item and not self._tree.parent(item) and self._tree.get_children(item):
+            self._tree.item(item, open=not self._tree.item(item, "open"))
+        return "break"
