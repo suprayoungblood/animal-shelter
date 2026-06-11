@@ -61,11 +61,20 @@ ANIMAL_BUILDERS: dict[str, Callable[[], object]] = {
 
 
 def add_animal(shelter: Shelter, animal_type: str) -> None:
-    """Build an animal and house it in the shelter."""
+    """Build an animal and take it into the shelter."""
     title(f"New {animal_type} Intake")
     animal = ANIMAL_BUILDERS[animal_type]()
-    number = shelter.add_animal(animal)
-    success(f"{animal_type} '{animal.name}' placed in kennel #{number}.")
+    result = shelter.add_animal(animal)
+    if result.adopter is not None:
+        success(
+            f"{animal_type} '{animal.name}' adopted on arrival by "
+            f"waitlisted adopter '{result.adopter}'."
+        )
+    else:
+        success(
+            f"{animal_type} '{animal.name}' placed in kennel "
+            f"#{result.kennel_number}."
+        )
     info(str(shelter))
 
 

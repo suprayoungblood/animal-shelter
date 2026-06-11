@@ -54,7 +54,7 @@ class KennelList(ttk.LabelFrame):
             selectmode="browse",
         )
         for col in COLUMNS:
-            tree.heading(col, text=COLUMN_HEADINGS[col])
+            tree.heading(col, text=COLUMN_HEADINGS[col], anchor="w")
             tree.column(col, width=COLUMN_WIDTHS[col], anchor="w")
         return tree
 

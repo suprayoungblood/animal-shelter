@@ -8,14 +8,29 @@ Rules enforced here:
   - Adoption removes the animal but keeps the kennel for reuse.
   - Adopters asking for an animal type not currently housed are
     placed on a per-type waiting list (FIFO).
+  - An arriving animal whose type has waiting adopters goes straight
+    to the first person in line instead of into a kennel.
 """
+from typing import NamedTuple
+
 from animals import ANIMAL_TYPES
 from kennel import Kennel
-from kennel.kennel import AllowedAnimal
+from kennel.kennel import AllowedAnimal, validate_animal
 
 # Case-insensitive lookup table: 'dog' -> 'Dog'. Plain data structure,
 # derived from the registry so new animal types need no changes here.
 _TYPE_LOOKUP: dict[str, str] = {name.casefold(): name for name in ANIMAL_TYPES}
+
+
+class IntakeResult(NamedTuple):
+    """Outcome of an intake — exactly one field is set.
+
+    kennel_number: 1-based kennel the animal was housed in, or None.
+    adopter: waitlisted adopter who took the animal on arrival, or None.
+    """
+
+    kennel_number: int | None
+    adopter: str | None
 
 
 class Shelter:
@@ -41,18 +56,32 @@ class Shelter:
         """Return how many kennels currently hold an animal."""
         return sum(1 for kennel in self.kennels if not kennel.is_empty())
 
-    def add_animal(self, animal: AllowedAnimal) -> int:
-        """House an animal, reusing an empty kennel before building one.
+    def add_animal(self, animal: AllowedAnimal) -> IntakeResult:
+        """Take in an animal: fulfill the waiting list or house it.
+
+        If adopters are waiting for this animal's type, the first in line
+        adopts it immediately and no kennel is used. Otherwise the animal
+        goes into an empty kennel, building a new one only when none are
+        empty.
 
         :param animal: A Dog, Cat, or Bird instance.
-        :return: The 1-based kennel number the animal was placed in.
+        :return: IntakeResult with either the kennel number or the adopter.
         :raises TypeError: If the object is not a registered animal type.
         :raises ValueError: If every kennel is occupied and the shelter
             is at capacity.
         """
+        validate_animal(animal)
+        adopter = self._pop_waiting_adopter(type(animal).__name__)
+        if adopter is not None:
+            return IntakeResult(kennel_number=None, adopter=adopter)
         kennel = self._find_empty_kennel() or self._build_kennel()
         kennel.add_animal(animal)
-        return self.kennels.index(kennel) + 1
+        return IntakeResult(self.kennels.index(kennel) + 1, None)
+
+    def _pop_waiting_adopter(self, animal_type: str) -> str | None:
+        """Dequeue the first adopter waiting for this type, if any."""
+        waiting = self.waiting_list[animal_type]
+        return waiting.pop(0) if waiting else None
 
     def adopt(self, animal_type: str, adopter: str) -> AllowedAnimal | None:
         """Adopt an animal of the requested type out of the shelter.

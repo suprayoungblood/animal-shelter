@@ -43,8 +43,8 @@ class TestShelterIntake(unittest.TestCase):
         shelter = Shelter(3)
         shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
         shelter.adopt("Dog", "Avery")
-        number = shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        self.assertEqual(number, 1)
+        result = shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        self.assertEqual(result.kennel_number, 1)
         self.assertEqual(len(shelter.kennels), 1)
 
     def test_add_animal_rejected_at_capacity(self):
@@ -104,6 +104,41 @@ class TestShelterAdoption(unittest.TestCase):
         """A blank adopter name raises ValueError."""
         with self.assertRaises(ValueError):
             self.shelter.adopt("Dog", "   ")
+
+
+class TestWaitingListFulfillment(unittest.TestCase):
+    """Tests for arriving animals fulfilling the waiting list."""
+
+    def setUp(self):
+        """Create a shelter with one adopter waiting for a Cat."""
+        self.shelter = Shelter(2)
+        self.shelter.adopt("Cat", "Blake")
+
+    def test_arrival_goes_to_first_waiting_adopter(self):
+        """An arriving animal is adopted on arrival by the first waiter."""
+        result = self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        self.assertEqual(result.adopter, "Blake")
+        self.assertIsNone(result.kennel_number)
+
+    def test_fulfilled_arrival_uses_no_kennel(self):
+        """An animal adopted on arrival never occupies a kennel."""
+        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        self.assertEqual(len(self.shelter.kennels), 0)
+
+    def test_fulfillment_dequeues_in_fifo_order(self):
+        """Waiting adopters are served first-come, first-served."""
+        self.shelter.adopt("Cat", "Casey")
+        first = self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
+        second = self.shelter.add_animal(Cat("Milo", 2, "Gray"))
+        self.assertEqual(first.adopter, "Blake")
+        self.assertEqual(second.adopter, "Casey")
+        self.assertEqual(self.shelter.waiting_list["Cat"], [])
+
+    def test_other_types_still_get_housed(self):
+        """A type with no waiters is housed normally."""
+        result = self.shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
+        self.assertEqual(result.kennel_number, 1)
+        self.assertIsNone(result.adopter)
 
 
 class TestShelterReporting(unittest.TestCase):

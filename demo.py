@@ -7,6 +7,7 @@ Shows:
   4. The capacity limit rejecting intakes once every kennel is occupied.
   5. Adoption removing the animal while the kennel stays in the shelter.
   6. Adopters joining a waiting list when their type is unavailable.
+  7. An arriving animal going straight to the first waitlisted adopter.
 
 Run with:
     python3 demo.py
@@ -29,8 +30,8 @@ def main() -> None:
         Cat("Luna", 5, "Orange Tabby"),
         Bird("Tweety", 1, 6.5),
     ):
-        number = shelter.add_animal(animal)
-        print(f"{animal} -> kennel #{number}   ({shelter})")
+        result = shelter.add_animal(animal)
+        print(f"{animal} -> kennel #{result.kennel_number}   ({shelter})")
 
     print("\n=== At capacity: a fourth animal is rejected ===")
     try:
@@ -43,12 +44,17 @@ def main() -> None:
     print(f"Avery adopted: {adopted}   ({shelter})")
 
     print("\n=== The freed kennel is reused before any new one is built ===")
-    number = shelter.add_animal(Dog("Rex", 3, "Beagle"))
-    print(f"Rex placed in reused kennel #{number}   ({shelter})")
+    result = shelter.add_animal(Dog("Rex", 3, "Beagle"))
+    print(f"Rex placed in reused kennel #{result.kennel_number}   ({shelter})")
 
     print("\n=== No Cat available, so the adopter joins the waiting list ===")
-    result = shelter.adopt("Cat", "Blake")
-    print(f"Adoption result: {result}")
+    adopted = shelter.adopt("Cat", "Blake")
+    print(f"Adoption result: {adopted}")
+    print(f"Cat waiting list: {shelter.waiting_list['Cat']}")
+
+    print("\n=== An arriving Cat goes straight to the waitlisted adopter ===")
+    result = shelter.add_animal(Cat("Milo", 2, "Gray"))
+    print(f"Milo adopted on arrival by: {result.adopter}   ({shelter})")
     print(f"Cat waiting list: {shelter.waiting_list['Cat']}")
 
 

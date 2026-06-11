@@ -98,16 +98,23 @@ class AnimalShelterApp(tk.Tk):
         self._waiting_view.refresh(self._shelter.waiting_list)
 
     def _handle_add(self, animal) -> None:
-        """House the new animal in the shelter and refresh the lists."""
+        """Take in the new animal and refresh the lists."""
         try:
-            number = self._shelter.add_animal(animal)
+            result = self._shelter.add_animal(animal)
         except ValueError as exc:
             self._status_var.set(str(exc))
             return
         self._refresh()
+        animal_type = type(animal).__name__
+        if result.adopter is not None:
+            self._status_var.set(
+                f"{animal_type} '{animal.name}' adopted on arrival by "
+                f"waitlisted adopter '{result.adopter}'. {self._shelter}"
+            )
+            return
         self._status_var.set(
-            f"Added {type(animal).__name__} '{animal.name}' to kennel "
-            f"#{number}. {self._shelter}"
+            f"Added {animal_type} '{animal.name}' to kennel "
+            f"#{result.kennel_number}. {self._shelter}"
         )
 
     def _handle_adopt(self, animal_type: str, adopter: str) -> None:

@@ -8,7 +8,7 @@ AllowedAnimal = Dog | Cat | Bird
 ALLOWED_CLASSES = tuple(ANIMAL_TYPES.values())
 
 
-def _validate_animal(animal: AllowedAnimal) -> None:
+def validate_animal(animal: AllowedAnimal) -> None:
     """Raise TypeError unless the object is a registered animal type."""
     if not isinstance(animal, ALLOWED_CLASSES):
         allowed = ", ".join(ANIMAL_TYPES)
@@ -25,7 +25,7 @@ class Kennel:
         :raises TypeError: If the provided object is not a Dog, Cat, or Bird.
         """
         if animal is not None:
-            _validate_animal(animal)
+            validate_animal(animal)
         self.animal = animal
 
     def is_empty(self) -> bool:
@@ -41,7 +41,7 @@ class Kennel:
         :raises TypeError: If the object is not a Dog, Cat, or Bird.
         :raises ValueError: If the kennel already contains an animal.
         """
-        _validate_animal(animal)
+        validate_animal(animal)
         if not self.is_empty():
             raise ValueError("Cannot add more than one animal to the kennel.")
         self.animal = animal

@@ -122,7 +122,7 @@ class WaitingListView(ttk.LabelFrame):
             height=len(ANIMAL_TYPES),
         )
         for col in WAITING_COLUMNS:
-            tree.heading(col, text=WAITING_HEADINGS[col])
+            tree.heading(col, text=WAITING_HEADINGS[col], anchor="w")
             tree.column(col, width=WAITING_WIDTHS[col], anchor="w")
         return tree
 

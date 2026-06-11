@@ -25,11 +25,12 @@ Use this table to find any assignment requirement in the code.
 | **New animals always reuse an empty kennel first** | `Shelter._find_empty_kennel()` checked before building |
 | **Adoption removes the animal from its kennel** (kennel stays) | `Shelter.adopt()` → `Kennel.remove_animal()` |
 | **Waiting list when the requested type isn't housed** | `Shelter.adopt()` appends to `Shelter.waiting_list` |
+| Arriving animals fulfill the waiting list (FIFO) | `Shelter.add_animal()` → `_pop_waiting_adopter()` |
 | **Dog / Cat / Bird** (Name, Age, Breed / Fur Color / Wingspan) | `animals/dog.py`, `animals/cat.py`, `animals/bird.py` |
 | Overloaded constructor / `__str__` (all classes) | `__init__` defaults and `__str__` in each class |
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
-| Unit tests | `tests/` — 42 tests across animals, kennel, and shelter |
+| Unit tests | `tests/` — 46 tests across animals, kennel, and shelter |
 | Main driver | `demo.py` (console) and `main.py` (GUI) |
 
 ---
@@ -62,9 +63,12 @@ Owns the kennels and enforces every shelter rule:
 
 - **`Shelter(capacity)`** — the constructor fixes how many kennels the shelter
   can ever hold; invalid capacities raise `ValueError`.
-- **`add_animal(animal)`** — places the animal in the **first empty kennel**;
-  only if none are empty does it build a new kennel, and only while under
-  capacity. At capacity with no empty kennels, intake is rejected.
+- **`add_animal(animal)`** — if adopters are **waiting for this type**, the
+  first in line adopts the animal immediately (no kennel used). Otherwise it
+  goes into the **first empty kennel**; only if none are empty does the
+  shelter build a new kennel, and only while under capacity. At capacity with
+  no empty kennels, intake is rejected. Returns an `IntakeResult` naming
+  either the kennel number or the adopter.
 - **`adopt(animal_type, adopter)`** — removes the animal from its kennel and
   returns it; **the kennel stays** in the shelter for reuse. If no animal of
   that type is housed, the adopter joins that type's **waiting list** (FIFO)
@@ -115,7 +119,7 @@ waiting list on the right.
 python3 -m unittest discover -s tests -v
 ```
 
-**42 tests, all passing.** They verify:
+**46 tests, all passing.** They verify:
 
 - each animal constructor, default arguments, and `__str__` format
 - the one-animal-per-kennel rule, `remove_animal()`, and `is_empty()`
@@ -123,6 +127,7 @@ python3 -m unittest discover -s tests -v
 - empty kennels being reused before new ones are built
 - adoption returning the animal while keeping the kennel
 - waitlisting (including FIFO order) when a type isn't available
+- arriving animals being adopted on arrival by the first waitlisted adopter
 - invalid capacities, unknown types, and blank adopter names being rejected
 - no class uses inheritance
 
