@@ -58,13 +58,15 @@ PADDING_Y = 18
 CHAR_PAD = 18
 
 CODE_FILES = [
+    ROOT / "animals" / "animal.py",
     ROOT / "animals" / "dog.py",
     ROOT / "animals" / "cat.py",
     ROOT / "animals" / "bird.py",
     ROOT / "kennel" / "kennel.py",
-    ROOT / "demo.py",
+    ROOT / "shelter" / "shelter.py",
     ROOT / "tests" / "test_animals.py",
     ROOT / "tests" / "test_kennel.py",
+    ROOT / "tests" / "test_shelter.py",
 ]
 
 
@@ -217,15 +219,12 @@ def main() -> None:
         render_code(path, font, out)
 
     print("Rendering application/output screenshots:")
-    demo_out = run([sys.executable, "demo.py"])
-    render_terminal("python3 demo.py", demo_out, font, APP_DIR / "01_demo_output.png")
-
     test_out = run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"])
     render_terminal(
         "python3 -m unittest discover -s tests -v",
         test_out,
         font,
-        APP_DIR / "02_unit_tests.png",
+        APP_DIR / "01_unit_tests.png",
     )
 
     print(f"\nDone. Deliverables in: {DESKTOP}")

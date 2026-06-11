@@ -9,7 +9,7 @@ relationship kinds are used where they belong: **inheritance ("is-a")** for
 Dog/Cat/Bird → Animal, and **containment ("has-a")** for Shelter → Kennels →
 animal.
 
-It ships with two ways to run it (a console demo and a desktop GUI) and a full
+It ships with two ways to run it (a console app and a desktop GUI) and a full
 **unit-test suite**.
 
 ---
@@ -36,7 +36,7 @@ Use this table to find any assignment requirement in the code.
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
 | Unit tests | `tests/` — 54 tests across animals, kennel, and shelter |
-| Main driver | `demo.py` (console) and `main.py` (GUI) |
+| Main driver | `main.py` (GUI) and `cli.py` (console) |
 
 ---
 
@@ -88,19 +88,7 @@ Owns the kennels and enforces every shelter rule:
 
 ## How to run
 
-### 1. Console demo (simplest — proves every requirement)
-
-```bash
-python3 demo.py
-```
-
-It walks through, in order: creating each animal type (and proving each IS-AN
-Animal), the one-animal-per-kennel rule, setting the capacity, kennels being
-built on demand, intake rejection at capacity, adoption freeing an animal
-while keeping the kennel, the freed kennel being reused, and the waiting list
-(joining it, and an arriving animal fulfilling it).
-
-### 2. Interactive console app
+### 1. Interactive console app
 
 ```bash
 python3 cli.py
@@ -109,7 +97,7 @@ python3 cli.py
 Menu-driven: set the shelter capacity, add Dogs/Cats/Birds, view all kennels
 (occupied and empty), adopt by type, and view the waiting list and adoption log.
 
-### 3. Desktop GUI
+### 2. Desktop GUI
 
 The GUI needs a Python build that includes **Tk**. The Homebrew `python3` on
 macOS usually does **not**; the official **python.org** build does.
@@ -150,7 +138,6 @@ python3 -m unittest discover -s tests -v
 ```
 Animal/
 ├── README.md
-├── demo.py                 # Main driver — console demonstration of all requirements
 ├── main.py                 # Entry point — launches the GUI
 ├── cli.py                  # Interactive console version
 ├── animals/
