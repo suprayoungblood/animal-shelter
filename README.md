@@ -35,7 +35,7 @@ Use this table to find any assignment requirement in the code.
 | Overloaded constructor / `__str__` (all classes) | `__init__` defaults and `__str__` in each class |
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
-| Unit tests | `tests/` — 54 tests across animals, kennel, and shelter |
+| Unit tests | `tests/` — 62 tests across animals, kennel, and shelter |
 | Main driver | `main.py` (GUI) and `cli.py` (console) |
 
 ---
@@ -83,6 +83,9 @@ Owns the kennels and enforces every shelter rule:
   and `None` is returned. Type matching is case-insensitive via a lookup table.
 - **`adoptions`** — every completed adoption (from a kennel or on arrival) is
   recorded as an `AdoptionRecord`, giving both UIs an adoption log.
+- **Corrections** — `replace_animal()` and `remove_animal()` fix data-entry
+  mistakes without touching the adoption log, and `rename_waiting_adopter()` /
+  `remove_waiting_adopter()` edit the waiting list while preserving line order.
 
 ---
 
@@ -95,7 +98,8 @@ python3 cli.py
 ```
 
 Menu-driven: set the shelter capacity, add Dogs/Cats/Birds, view all kennels
-(occupied and empty), adopt by type, and view the waiting list and adoption log.
+(occupied and empty), adopt by type, edit or remove an animal (data fixes),
+manage the waiting list, and view the waiting list and adoption log.
 
 ### 2. Desktop GUI
 
@@ -109,7 +113,10 @@ macOS usually does **not**; the official **python.org** build does.
 …or any `python3` for which `python3 -c "import tkinter"` succeeds. The window
 has the intake and adoption forms on the left, with the kennel list, waiting
 list, and adoption log on the right — every panel resizes with the window.
-Clicking a waiting-list row opens a dialog naming the adopters in line.
+Double-click a kennel row (or use Edit Selected) to correct an animal's
+details; Remove Selected deletes a mistaken entry without logging an
+adoption. Clicking a waiting-list row opens a dialog where the adopters in
+line can be viewed, renamed, or removed.
 
 ---
 
@@ -119,7 +126,7 @@ Clicking a waiting-list row opens a dialog naming the adopters in line.
 python3 -m unittest discover -s tests -v
 ```
 
-**54 tests, all passing.** They verify:
+**62 tests, all passing.** They verify:
 
 - each animal constructor, default arguments, and `__str__` format
 - the one-animal-per-kennel rule, `remove_animal()`, and `is_empty()`
@@ -129,6 +136,8 @@ python3 -m unittest discover -s tests -v
 - waitlisting (including FIFO order) when a type isn't available
 - arriving animals being adopted on arrival by the first waitlisted adopter
 - invalid capacities, unknown types, and blank adopter names being rejected
+- corrections (replace/remove animal, rename/remove waiting adopter) working
+  in place and never touching the adoption log
 - Dog, Cat, and Bird each inherit from Animal (and Kennel deliberately does not)
 
 ---
@@ -155,13 +164,13 @@ Animal/
 │   └── test_shelter.py     # Unit tests for capacity, reuse, adoption, waitlist
 ├── gui/                    # Tkinter desktop front end
 │   ├── app.py              # Main window
-│   ├── forms.py            # Animal intake form
+│   ├── forms.py            # Animal intake form + edit-animal dialog
 │   ├── adoption.py         # Adoption form + waiting list panel + adopters dialog
 │   ├── adoption_log.py     # History of completed adoptions
 │   ├── kennel_list.py      # List of all kennels
 │   └── styles.py           # Colors / fonts / theme
 ├── ui/console.py           # Console formatting helpers used by cli.py
-├── uml/class_diagram.md    # UML class diagram (containment, no inheritance)
+├── uml/class_diagram.md    # UML class diagram (inheritance + containment)
 └── scripts/                # Helper scripts for generating screenshots
 ```
 

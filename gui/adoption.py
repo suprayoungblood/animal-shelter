@@ -103,18 +103,27 @@ class WaitingListView(ttk.LabelFrame):
     """A card-styled summary of waiting adopters by type.
 
     Only animal types with at least one waiter get a row. Each row shows
-    the count of waiting adopters; clicking the row opens a modal listing
-    the adopters in first-come, first-served order.
+    the count of waiting adopters; clicking the row opens a modal where
+    the names can be viewed, corrected, or removed.
     """
 
-    def __init__(self, parent):
+    def __init__(
+        self,
+        parent,
+        on_rename: Callable[[str, int, str], None],
+        on_remove: Callable[[str, int], None],
+    ):
         """Render the waiting list panel.
 
         :param parent: Tk parent widget.
+        :param on_rename: Callback (animal_type, 1-based position, new_name).
+        :param on_remove: Callback (animal_type, 1-based position).
         """
         super().__init__(parent, text="  Waiting List  ", style="Card.TLabelframe")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
+        self._on_rename = on_rename
+        self._on_remove = on_remove
         self._waiting: dict[str, list[str]] = {}
         self._tree = self._build_tree()
         self._tree.grid(row=0, column=0, sticky="nsew", padx=PAD, pady=PAD)
@@ -144,35 +153,56 @@ class WaitingListView(ttk.LabelFrame):
             return
         for animal_type, adopters in self._waiting.items():
             count = len(adopters)
-            label = f"{count} waiting — click to view"
+            label = f"{count} waiting — click to manage"
             self._tree.insert("", "end", values=(animal_type, label))
 
     def _open_adopters_modal(self, event) -> str:
-        """Open a modal listing the clicked type's waiting adopters."""
+        """Open a modal managing the clicked type's waiting adopters."""
         item = self._tree.identify_row(event.y)
         if item:
             animal_type = self._tree.item(item, "values")[0]
             adopters = self._waiting.get(animal_type)
             if adopters:
-                AdoptersModal(self, animal_type, adopters)
+                AdoptersModal(
+                    self, animal_type, adopters, self._on_rename, self._on_remove
+                )
         return "break"
 
 
 class AdoptersModal(tk.Toplevel):
-    """A small modal dialog listing one type's waiting adopters in order."""
+    """A modal dialog to view, rename, or remove one type's waiters.
 
-    def __init__(self, parent, animal_type: str, adopters: list[str]):
+    Each adopter gets an editable entry (position preserved) and a
+    Remove button. Save Changes applies every edited name at once.
+    """
+
+    def __init__(
+        self,
+        parent,
+        animal_type: str,
+        adopters: list[str],
+        on_rename: Callable[[str, int, str], None],
+        on_remove: Callable[[str, int], None],
+    ):
         """Build and show the dialog centered over the main window.
 
         :param parent: The widget the dialog was opened from.
         :param animal_type: The animal type whose waiters are shown.
         :param adopters: Adopter names in first-come, first-served order.
+        :param on_rename: Callback (animal_type, 1-based position, new_name).
+        :param on_remove: Callback (animal_type, 1-based position).
         """
         super().__init__(parent)
+        self._animal_type = animal_type
+        self._original = list(adopters)
+        self._on_rename = on_rename
+        self._on_remove = on_remove
+        self._name_vars: list[tk.StringVar] = []
+        self._error_var = tk.StringVar()
         self.title(f"{animal_type} Waiting List")
         self.configure(bg=PALETTE["panel"])
         self.resizable(False, False)
-        self._build(animal_type, adopters)
+        self._build()
         self._center_over(parent.winfo_toplevel())
         self.transient(parent.winfo_toplevel())
         self.bind("<Escape>", lambda _: self.destroy())
@@ -181,31 +211,75 @@ class AdoptersModal(tk.Toplevel):
         except tk.TclError:
             pass  # window not yet viewable (e.g. headless tests)
 
-    def _build(self, animal_type: str, adopters: list[str]) -> None:
-        """Construct the header, the numbered name list, and Close."""
+    def _build(self) -> None:
+        """Construct the header, editable name rows, and action buttons."""
+        self.columnconfigure(1, weight=1)
         tk.Label(
             self,
-            text=f"Waiting for a {animal_type}",
+            text=f"Waiting for a {self._animal_type}",
             bg=PALETTE["panel"],
             fg=PALETTE["accent"],
             font=FONTS["h2"],
             anchor="w",
-        ).pack(fill="x", padx=PAD, pady=(PAD, 4))
-        for position, name in enumerate(adopters, start=1):
-            tk.Label(
-                self,
-                text=f"{position}. {name}",
-                bg=PALETTE["panel"],
-                fg=PALETTE["text"],
-                font=FONTS["body"],
-                anchor="w",
-            ).pack(fill="x", padx=PAD * 2)
+        ).grid(row=0, column=0, columnspan=3, sticky="ew", padx=PAD, pady=(PAD, 4))
+        for position, name in enumerate(self._original, start=1):
+            self._build_name_row(position, name)
+        footer = len(self._original) + 1
+        tk.Label(
+            self,
+            textvariable=self._error_var,
+            bg=PALETTE["panel"],
+            fg=PALETTE["danger"],
+            font=FONTS["small"],
+            anchor="w",
+        ).grid(row=footer, column=0, columnspan=3, sticky="ew", padx=PAD)
+        ttk.Button(
+            self, text="Save Changes", style="Accent.TButton", command=self._save
+        ).grid(row=footer + 1, column=0, columnspan=2, sticky="ew",
+               padx=(PAD, 4), pady=PAD)
+        ttk.Button(
+            self, text="Close", style="Danger.TButton", command=self.destroy
+        ).grid(row=footer + 1, column=2, sticky="ew", padx=(4, PAD), pady=PAD)
+
+    def _build_name_row(self, position: int, name: str) -> None:
+        """Render one adopter: position, editable entry, Remove button."""
+        var = tk.StringVar(value=name)
+        self._name_vars.append(var)
+        tk.Label(
+            self,
+            text=f"{position}.",
+            bg=PALETTE["panel"],
+            fg=PALETTE["text"],
+            font=FONTS["body"],
+        ).grid(row=position, column=0, sticky="w", padx=(PAD, 4), pady=2)
+        ttk.Entry(self, textvariable=var).grid(
+            row=position, column=1, sticky="ew", pady=2
+        )
         ttk.Button(
             self,
-            text="Close",
-            style="Accent.TButton",
-            command=self.destroy,
-        ).pack(fill="x", padx=PAD, pady=PAD)
+            text="Remove",
+            style="Danger.TButton",
+            command=lambda p=position: self._remove(p),
+        ).grid(row=position, column=2, sticky="ew", padx=(4, PAD), pady=2)
+
+    def _save(self) -> None:
+        """Apply every changed name in place, then close."""
+        for position, (var, original) in enumerate(
+            zip(self._name_vars, self._original), start=1
+        ):
+            new_name = var.get().strip()
+            if new_name and new_name != original:
+                try:
+                    self._on_rename(self._animal_type, position, new_name)
+                except ValueError as exc:
+                    self._error_var.set(str(exc))
+                    return
+        self.destroy()
+
+    def _remove(self, position: int) -> None:
+        """Remove the adopter at a 1-based position, then close."""
+        self._on_remove(self._animal_type, position)
+        self.destroy()
 
     def _center_over(self, window: tk.Misc) -> None:
         """Position the dialog over the center of the given window."""

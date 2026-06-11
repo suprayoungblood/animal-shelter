@@ -7,7 +7,7 @@ from tkinter import ttk
 
 from gui.adoption import AdoptionForm, WaitingListView
 from gui.adoption_log import AdoptionLogView
-from gui.forms import AnimalForm
+from gui.forms import AnimalForm, EditAnimalModal
 from gui.kennel_list import KennelList
 from gui.styles import FONTS, PAD, PALETTE, WINDOW_SIZE, apply_theme
 from shelter import Shelter
@@ -81,8 +81,14 @@ class AnimalShelterApp(tk.Tk):
         column.rowconfigure(0, weight=3)
         column.rowconfigure(1, weight=1)
         column.rowconfigure(2, weight=1)
-        self._kennel_list = KennelList(column)
-        self._waiting_view = WaitingListView(column)
+        self._kennel_list = KennelList(
+            column, on_edit=self._handle_edit, on_remove=self._handle_remove
+        )
+        self._waiting_view = WaitingListView(
+            column,
+            on_rename=self._handle_waiting_rename,
+            on_remove=self._handle_waiting_remove,
+        )
         self._log_view = AdoptionLogView(column)
         self._kennel_list.grid(row=0, column=0, sticky="nsew", pady=(0, PAD))
         self._waiting_view.grid(row=1, column=0, sticky="nsew", pady=(0, PAD))
@@ -126,6 +132,59 @@ class AnimalShelterApp(tk.Tk):
         self._status_var.set(
             f"Added {animal_type} '{animal.name}' to kennel "
             f"#{result.kennel_number}. {self._shelter}"
+        )
+
+    def _handle_edit(self, kennel_number: int) -> None:
+        """Open the edit modal for the selected kennel's animal."""
+        kennel = self._shelter.kennels[kennel_number - 1]
+        if kennel.is_empty():
+            self._status_var.set(f"Kennel #{kennel_number} is empty.")
+            return
+        EditAnimalModal(
+            self,
+            kennel.animal,
+            on_save=lambda fixed: self._apply_edit(kennel_number, fixed),
+        )
+
+    def _apply_edit(self, kennel_number: int, corrected) -> None:
+        """Swap in the corrected animal and refresh."""
+        replaced = self._shelter.replace_animal(kennel_number, corrected)
+        self._refresh()
+        self._status_var.set(
+            f"Updated kennel #{kennel_number}: '{replaced.name}' is now "
+            f"'{corrected.name}'."
+        )
+
+    def _handle_remove(self, kennel_number: int) -> None:
+        """Remove a mistakenly added animal (not logged as an adoption)."""
+        kennel = self._shelter.kennels[kennel_number - 1]
+        if kennel.is_empty():
+            self._status_var.set(f"Kennel #{kennel_number} is already empty.")
+            return
+        removed = self._shelter.remove_animal(kennel_number)
+        self._refresh()
+        self._status_var.set(
+            f"Removed {type(removed).__name__} '{removed.name}' from kennel "
+            f"#{kennel_number} (data fix, not an adoption)."
+        )
+
+    def _handle_waiting_rename(
+        self, animal_type: str, position: int, new_name: str
+    ) -> None:
+        """Correct a waitlisted adopter's name."""
+        self._shelter.rename_waiting_adopter(animal_type, position, new_name)
+        self._refresh()
+        self._status_var.set(
+            f"Renamed {animal_type} waiting list position {position} "
+            f"to '{new_name}'."
+        )
+
+    def _handle_waiting_remove(self, animal_type: str, position: int) -> None:
+        """Remove an adopter from a waiting list."""
+        removed = self._shelter.remove_waiting_adopter(animal_type, position)
+        self._refresh()
+        self._status_var.set(
+            f"Removed '{removed}' from the {animal_type} waiting list."
         )
 
     def _handle_adopt(self, animal_type: str, adopter: str) -> None:

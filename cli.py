@@ -136,6 +136,71 @@ def view_adoption_log(shelter: Shelter) -> None:
     divider()
 
 
+def prompt_occupied_kennel(shelter: Shelter, purpose: str) -> int:
+    """Show the kennels and prompt for an occupied kennel number.
+
+    :return: The 1-based kennel number, or 0 when none are occupied.
+    """
+    if shelter.occupied_count() == 0:
+        info(f"No animals to {purpose}.")
+        return 0
+    view_kennels(shelter)
+    return prompt_int(
+        f"Kennel number to {purpose}", minimum=1, maximum=len(shelter.kennels)
+    )
+
+
+def edit_animal(shelter: Shelter) -> None:
+    """Re-enter an animal's details to correct a data-entry mistake."""
+    title("Edit an Animal")
+    number = prompt_occupied_kennel(shelter, "edit")
+    if number == 0:
+        return
+    animal_type = shelter.kennels[number - 1].get_animal_type()
+    if animal_type == "Empty":
+        error(f"Kennel #{number} is empty.")
+        return
+    info(f"Re-enter the details for the {animal_type} in kennel #{number}.")
+    replaced = shelter.replace_animal(number, ANIMAL_BUILDERS[animal_type]())
+    success(f"Kennel #{number} updated (was '{replaced.name}').")
+
+
+def remove_animal(shelter: Shelter) -> None:
+    """Remove a mistakenly added animal (not logged as an adoption)."""
+    title("Remove an Animal (data fix)")
+    number = prompt_occupied_kennel(shelter, "remove")
+    if number == 0:
+        return
+    removed = shelter.remove_animal(number)
+    success(
+        f"Removed {type(removed).__name__} '{removed.name}' from kennel "
+        f"#{number}. Not logged as an adoption."
+    )
+
+
+def manage_waiting_list(shelter: Shelter) -> None:
+    """Rename or remove a waitlisted adopter."""
+    title("Manage Waiting List")
+    view_waiting_list(shelter)
+    animal_type = prompt_animal_type()
+    names = shelter.waiting_list[animal_type]
+    if not names:
+        info(f"No one is waiting for a {animal_type}.")
+        return
+    position = prompt_int("Position in line", minimum=1, maximum=len(names))
+    action = prompt_choice(
+        f"What about '{names[position - 1]}'?",
+        {"1": "Rename", "2": "Remove"},
+    )
+    if action == "1":
+        new_name = prompt_text("Corrected name")
+        shelter.rename_waiting_adopter(animal_type, position, new_name)
+        success(f"Position {position} renamed to '{new_name}'.")
+        return
+    removed = shelter.remove_waiting_adopter(animal_type, position)
+    success(f"Removed '{removed}' from the {animal_type} waiting list.")
+
+
 def build_actions() -> dict[str, tuple[str, Callable[[Shelter], None]]]:
     """Assemble the menu key -> (label, action) table dynamically."""
     actions: dict[str, tuple[str, Callable[[Shelter], None]]] = {}
@@ -148,7 +213,10 @@ def build_actions() -> dict[str, tuple[str, Callable[[Shelter], None]]]:
     for label, action in (
         ("View all kennels", view_kennels),
         ("Adopt an animal", adopt_animal),
+        ("Edit an animal (data fix)", edit_animal),
+        ("Remove an animal (data fix)", remove_animal),
         ("View waiting list", view_waiting_list),
+        ("Manage waiting list", manage_waiting_list),
         ("View adoption log", view_adoption_log),
     ):
         actions[str(len(actions) + 1)] = (label, action)

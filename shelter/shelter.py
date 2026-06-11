@@ -123,6 +123,87 @@ class Shelter:
         self._record_adoption(animal, adopter, on_arrival=False)
         return animal
 
+    def replace_animal(self, kennel_number: int, animal: Animal) -> Animal:
+        """Swap a kennel's occupant for a corrected one (data fix).
+
+        Not an adoption: nothing is logged and the kennel stays occupied.
+
+        :param kennel_number: 1-based kennel holding the animal to fix.
+        :param animal: The corrected replacement animal.
+        :return: The animal that was replaced.
+        :raises TypeError: If the replacement is not an Animal.
+        :raises ValueError: If the kennel number is invalid or the kennel
+            is empty.
+        """
+        validate_animal(animal)
+        kennel = self._kennel_at(kennel_number)
+        replaced = kennel.remove_animal()
+        kennel.add_animal(animal)
+        return replaced
+
+    def remove_animal(self, kennel_number: int) -> Animal:
+        """Remove an animal added by mistake (data fix, not an adoption).
+
+        Nothing is logged; the kennel stays in the shelter for reuse.
+
+        :param kennel_number: 1-based kennel to empty.
+        :return: The removed animal.
+        :raises ValueError: If the kennel number is invalid or the kennel
+            is already empty.
+        """
+        return self._kennel_at(kennel_number).remove_animal()
+
+    def rename_waiting_adopter(
+        self, animal_type: str, position: int, new_name: str
+    ) -> None:
+        """Correct a waitlisted adopter's name, keeping their place in line.
+
+        :param animal_type: The waiting list to edit (case-insensitive).
+        :param position: 1-based place in line.
+        :param new_name: The corrected adopter name.
+        :raises ValueError: If the type, position, or name is invalid.
+        """
+        names = self.waiting_list[self._normalize_type(animal_type)]
+        names[self._validated_position(names, position)] = (
+            self._validated_adopter(new_name)
+        )
+
+    def remove_waiting_adopter(self, animal_type: str, position: int) -> str:
+        """Remove an adopter from a waiting list (withdrawal or mistake).
+
+        :param animal_type: The waiting list to edit (case-insensitive).
+        :param position: 1-based place in line.
+        :return: The removed adopter's name.
+        :raises ValueError: If the type or position is invalid.
+        """
+        names = self.waiting_list[self._normalize_type(animal_type)]
+        return names.pop(self._validated_position(names, position))
+
+    def _kennel_at(self, kennel_number: int) -> Kennel:
+        """Return the kennel for a 1-based number or raise ValueError."""
+        if (
+            not isinstance(kennel_number, int)
+            or isinstance(kennel_number, bool)
+            or not 1 <= kennel_number <= len(self.kennels)
+        ):
+            raise ValueError(
+                f"Kennel number must be between 1 and {len(self.kennels)}."
+            )
+        return self.kennels[kennel_number - 1]
+
+    @staticmethod
+    def _validated_position(names: list[str], position: int) -> int:
+        """Convert a 1-based position to an index or raise ValueError."""
+        if (
+            not isinstance(position, int)
+            or isinstance(position, bool)
+            or not 1 <= position <= len(names)
+        ):
+            raise ValueError(
+                f"Position must be between 1 and {len(names)}."
+            )
+        return position - 1
+
     def _find_empty_kennel(self) -> Kennel | None:
         """Return the first empty kennel, or None when all are occupied."""
         return next((kennel for kennel in self.kennels if kennel.is_empty()), None)

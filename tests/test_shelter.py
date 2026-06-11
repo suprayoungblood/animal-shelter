@@ -181,6 +181,67 @@ class TestAdoptionLog(unittest.TestCase):
         self.assertEqual(adopters, ["Avery", "Casey"])
 
 
+class TestCorrections(unittest.TestCase):
+    """Tests for fixing data-entry mistakes (not adoptions)."""
+
+    def setUp(self):
+        """Create a shelter housing one dog, with one waiting adopter."""
+        self.shelter = Shelter(3)
+        self.shelter.add_animal(Dog("Charlei", 7, "Golden Retriever"))
+        self.shelter.adopt("Cat", "Blkae")
+
+    def test_replace_animal_swaps_in_place(self):
+        """replace_animal corrects the occupant and keeps the kennel."""
+        fixed = Dog("Charlie", 7, "Golden Retriever")
+        replaced = self.shelter.replace_animal(1, fixed)
+        self.assertEqual(replaced.name, "Charlei")
+        self.assertIs(self.shelter.kennels[0].animal, fixed)
+        self.assertEqual(len(self.shelter.kennels), 1)
+
+    def test_replace_animal_is_not_logged(self):
+        """A correction never appears in the adoption log."""
+        self.shelter.replace_animal(1, Dog("Charlie", 7, "Golden Retriever"))
+        self.assertEqual(self.shelter.adoptions, [])
+
+    def test_replace_empty_kennel_raises(self):
+        """Replacing in an empty kennel raises ValueError."""
+        self.shelter.remove_animal(1)
+        with self.assertRaises(ValueError):
+            self.shelter.replace_animal(1, Dog())
+
+    def test_remove_animal_frees_kennel_without_logging(self):
+        """remove_animal empties the kennel and skips the adoption log."""
+        removed = self.shelter.remove_animal(1)
+        self.assertEqual(removed.name, "Charlei")
+        self.assertTrue(self.shelter.kennels[0].is_empty())
+        self.assertEqual(self.shelter.adoptions, [])
+
+    def test_invalid_kennel_numbers_raise(self):
+        """Out-of-range or non-integer kennel numbers raise ValueError."""
+        for bad in (0, 2, -1, "1", True):
+            with self.assertRaises(ValueError):
+                self.shelter.remove_animal(bad)
+
+    def test_rename_waiting_adopter_keeps_position(self):
+        """Renaming corrects the name without changing line order."""
+        self.shelter.adopt("Cat", "Casey")
+        self.shelter.rename_waiting_adopter("Cat", 1, "Blake")
+        self.assertEqual(self.shelter.waiting_list["Cat"], ["Blake", "Casey"])
+
+    def test_remove_waiting_adopter(self):
+        """Removing returns the name and shortens the line."""
+        removed = self.shelter.remove_waiting_adopter("Cat", 1)
+        self.assertEqual(removed, "Blkae")
+        self.assertEqual(self.shelter.waiting_list["Cat"], [])
+
+    def test_invalid_waiting_positions_raise(self):
+        """Out-of-range positions and blank names raise ValueError."""
+        with self.assertRaises(ValueError):
+            self.shelter.remove_waiting_adopter("Cat", 2)
+        with self.assertRaises(ValueError):
+            self.shelter.rename_waiting_adopter("Cat", 1, "   ")
+
+
 class TestShelterReporting(unittest.TestCase):
     """Tests for occupancy reporting helpers."""
 
