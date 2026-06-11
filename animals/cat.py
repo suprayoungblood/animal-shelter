@@ -1,8 +1,9 @@
-"""Cat class — standalone, no inheritance."""
+"""Cat class — inherits shared attributes from Animal."""
+from animals.animal import Animal
 
 
-class Cat:
-    """Represents a cat with a name, age, and fur color."""
+class Cat(Animal):
+    """A cat IS-AN Animal with a fur color."""
 
     def __init__(self, name: str = "Unknown", age: int = 0, fur_color: str = "Tabby"):
         """Overloaded constructor via default arguments.
@@ -11,10 +12,9 @@ class Cat:
         :param age: Cat's age in years.
         :param fur_color: Cat's fur color.
         """
-        self.name = name
-        self.age = age
+        super().__init__(name, age)
         self.fur_color = fur_color
 
     def __str__(self) -> str:
-        """Overloaded string representation."""
-        return f"Cat: Name: {self.name}, Age: {self.age}, Fur Color: {self.fur_color}"
+        """Extend the inherited representation with the fur color."""
+        return f"{super().__str__()}, Fur Color: {self.fur_color}"

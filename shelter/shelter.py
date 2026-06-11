@@ -13,9 +13,9 @@ Rules enforced here:
 """
 from typing import NamedTuple
 
-from animals import ANIMAL_TYPES
+from animals import ANIMAL_TYPES, Animal
 from kennel import Kennel
-from kennel.kennel import AllowedAnimal, validate_animal
+from kennel.kennel import validate_animal
 
 # Case-insensitive lookup table: 'dog' -> 'Dog'. Plain data structure,
 # derived from the registry so new animal types need no changes here.
@@ -66,7 +66,7 @@ class Shelter:
         """Return how many kennels currently hold an animal."""
         return sum(1 for kennel in self.kennels if not kennel.is_empty())
 
-    def add_animal(self, animal: AllowedAnimal) -> IntakeResult:
+    def add_animal(self, animal: Animal) -> IntakeResult:
         """Take in an animal: fulfill the waiting list or house it.
 
         If adopters are waiting for this animal's type, the first in line
@@ -95,14 +95,14 @@ class Shelter:
         return waiting.pop(0) if waiting else None
 
     def _record_adoption(
-        self, animal: AllowedAnimal, adopter: str, on_arrival: bool
+        self, animal: Animal, adopter: str, on_arrival: bool
     ) -> None:
         """Append a completed adoption to the shelter's log."""
         self.adoptions.append(
             AdoptionRecord(type(animal).__name__, animal.name, adopter, on_arrival)
         )
 
-    def adopt(self, animal_type: str, adopter: str) -> AllowedAnimal | None:
+    def adopt(self, animal_type: str, adopter: str) -> Animal | None:
         """Adopt an animal of the requested type out of the shelter.
 
         The kennel stays in the shelter for reuse. When no animal of the

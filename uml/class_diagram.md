@@ -1,42 +1,46 @@
 # UML Class Diagram — Animal Shelter
 
-Containment relationships only. **No inheritance** between any classes.
-The `Shelter` *has* up to `capacity` `Kennel`s, and each `Kennel` *has-a*
-(contains) at most one of: `Dog`, `Cat`, or `Bird`. The `Shelter` also keeps
-a per-type waiting list of adopter names.
+Two relationship kinds, each used where it belongs:
+
+- **Inheritance (is-a):** `Dog`, `Cat`, and `Bird` extend the `Animal`
+  base class, which holds the shared `name`, `age`, and `__str__`.
+- **Containment (has-a):** the `Shelter` *has* up to `capacity`
+  `Kennel`s, and each `Kennel` *has-an* `Animal`. The `Shelter` also
+  keeps a per-type waiting list and an adoption log.
 
 ```mermaid
 classDiagram
-    class Dog {
+    class Animal {
         +str name
         +int age
+        +__init__(name, age)
+        +__str__() str
+    }
+
+    class Dog {
         +str breed
         +__init__(name, age, breed)
         +__str__() str
     }
 
     class Cat {
-        +str name
-        +int age
         +str fur_color
         +__init__(name, age, fur_color)
         +__str__() str
     }
 
     class Bird {
-        +str name
-        +int age
         +float wingspan
         +__init__(name, age, wingspan)
         +__str__() str
     }
 
     class Kennel {
-        +Dog|Cat|Bird animal
+        +Animal animal
         +__init__(animal)
         +is_empty() bool
         +add_animal(animal)
-        +remove_animal() Dog|Cat|Bird
+        +remove_animal() Animal
         +get_animal_type() str
         +__str__() str
     }
@@ -45,35 +49,55 @@ classDiagram
         +int capacity
         +list~Kennel~ kennels
         +dict~str,list~ waiting_list
+        +list~AdoptionRecord~ adoptions
         +__init__(capacity)
         +is_full() bool
         +occupied_count() int
-        +add_animal(animal) int
-        +adopt(animal_type, adopter) Dog|Cat|Bird|None
+        +add_animal(animal) IntakeResult
+        +adopt(animal_type, adopter) Animal|None
         +__str__() str
     }
 
+    Animal <|-- Dog
+    Animal <|-- Cat
+    Animal <|-- Bird
     Shelter o-- "0..capacity" Kennel : contains
-    Kennel o-- "0..1" Dog  : contains
-    Kennel o-- "0..1" Cat  : contains
-    Kennel o-- "0..1" Bird : contains
+    Kennel o-- "0..1" Animal : contains
 ```
 
-## ASCII fallback (containment connectors)
+## ASCII fallback
 
 ```
+                                +-------------+
+                                |   Animal    |
+                                |-------------|
+                                | name        |
+                                | age         |
+                                | __str__()   |
+                                +-------------+
+                                      ^
+                     is-a             | (inheritance)
+              +-----------------------+-----------------------+
+              |                       |                       |
+        +-----------+           +-----------+           +-----------+
+        |    Dog    |           |    Cat    |           |   Bird    |
+        |-----------|           |-----------|           |-----------|
+        | breed     |           | fur_color |           | wingspan  |
+        +-----------+           +-----------+           +-----------+
+
 +---------------+   contains    +-----------+   contains   +-----------+
-|    Shelter    |<>-------------|  Kennel   |<>------------|    Dog    |
-|---------------| 0..capacity   |-----------|              +-----------+
-| capacity      |               | animal    |   contains   +-----------+
-| kennels       |               | isEmpty() |<>------------|    Cat    |
-| waiting_list  |               | add()     |              +-----------+
-| addAnimal()   |               | remove()  |   contains   +-----------+
-| adopt()       |               | getType() |<>------------|   Bird    |
-+---------------+               +-----------+              +-----------+
+|    Shelter    |<>-------------|  Kennel   |<>------------|  Animal   |
+|---------------| 0..capacity   |-----------|    0..1      +-----------+
+| capacity      |               | animal    |
+| kennels       |               | isEmpty() |
+| waiting_list  |               | add()     |
+| adoptions     |               | remove()  |
+| addAnimal()   |               | getType() |
+| adopt()       |               +-----------+
++---------------+
 ```
 
 **Legend**
-- `o--` / `<>----` : aggregation (containment) — Shelter HAS Kennels; a Kennel HAS-A animal.
+- `--|>` / `^` : inheritance — Dog, Cat, and Bird ARE Animals.
+- `o--` / `<>----` : aggregation (containment) — Shelter HAS Kennels; a Kennel HAS-AN Animal.
 - `0..capacity` / `0..1` : multiplicities — kennels are capped by capacity; a kennel holds at most one animal.
-- No `--|>` arrows: there is **no inheritance** between any classes.

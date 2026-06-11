@@ -1,11 +1,13 @@
 # Animal Shelter Simulator
 
-A small object-oriented Python program. It defines three independent animal
-classes — **Dog**, **Cat**, and **Bird** — a **Kennel** that holds at most one
-animal, and a **Shelter** that manages a capacity-limited collection of
-kennels plus a per-type adoption **waiting list**. Every relationship is
-**containment ("has-a")**, *not* inheritance: the Shelter *has* kennels and a
-Kennel *has an* animal. There is **no inheritance anywhere** in the program.
+A small object-oriented Python program. An **Animal** base class holds the
+attributes every animal shares (`name`, `age`, `__str__`); **Dog**, **Cat**,
+and **Bird** inherit from it and add one unique attribute each. A **Kennel**
+holds at most one animal, and a **Shelter** manages a capacity-limited
+collection of kennels plus a per-type adoption **waiting list**. Both
+relationship kinds are used where they belong: **inheritance ("is-a")** for
+Dog/Cat/Bird → Animal, and **containment ("has-a")** for Shelter → Kennels →
+animal.
 
 It ships with two ways to run it (a console demo and a desktop GUI) and a full
 **unit-test suite**.
@@ -26,29 +28,35 @@ Use this table to find any assignment requirement in the code.
 | **Adoption removes the animal from its kennel** (kennel stays) | `Shelter.adopt()` → `Kennel.remove_animal()` |
 | **Waiting list when the requested type isn't housed** | `Shelter.adopt()` appends to `Shelter.waiting_list` |
 | Arriving animals fulfill the waiting list (FIFO) | `Shelter.add_animal()` → `_pop_waiting_adopter()` |
-| **Dog / Cat / Bird** (Name, Age, Breed / Fur Color / Wingspan) | `animals/dog.py`, `animals/cat.py`, `animals/bird.py` |
+| **Animal base class** (shared `name`, `age`, `__str__`) | `animals/animal.py` |
+| **Dog / Cat / Bird inherit from Animal** (one unique attribute each) | `animals/dog.py`, `animals/cat.py`, `animals/bird.py` |
+| **Kennel uses the new Animal-based types** | `kennel/kennel.py` — `isinstance(animal, Animal)` |
+| **UML shows inheritance connectors** | `uml/class_diagram.md` — `Animal <\|-- Dog/Cat/Bird` |
 | Overloaded constructor / `__str__` (all classes) | `__init__` defaults and `__str__` in each class |
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
-| Unit tests | `tests/` — 50 tests across animals, kennel, and shelter |
+| Unit tests | `tests/` — 54 tests across animals, kennel, and shelter |
 | Main driver | `demo.py` (console) and `main.py` (GUI) |
 
 ---
 
 ## The classes
 
-### Dog / Cat / Bird (`animals/`)
-Three standalone classes, one attribute set each:
+### Animal and its subclasses (`animals/`)
+`Animal` is the base class: it stores `name` and `age` and provides the
+shared `__str__`. Dog, Cat, and Bird extend it, each adding exactly one
+attribute and extending `__str__` via `super()`:
 
 ```python
-Dog(name, age, breed)
-Cat(name, age, fur_color)
-Bird(name, age, wingspan)
+Animal(name, age)            # base — shared attributes and __str__
+Dog(name, age, breed)        # Dog IS-AN Animal
+Cat(name, age, fur_color)    # Cat IS-AN Animal
+Bird(name, age, wingspan)    # Bird IS-AN Animal
 ```
 
-The package also exposes `ANIMAL_TYPES`, a registry dict that the kennel,
-shelter, CLI, and GUI all derive their type lists from — adding a new animal
-class is a one-line change.
+The package also exposes `ANIMAL_TYPES`, a registry dict that the shelter,
+CLI, and GUI all derive their type lists from — adding a new Animal subclass
+is a one-line change.
 
 ### Kennel (`kennel/kennel.py`)
 A container that holds **at most one** animal.
@@ -86,10 +94,11 @@ Owns the kennels and enforces every shelter rule:
 python3 demo.py
 ```
 
-It walks through, in order: setting the capacity, kennels being built on
-demand, intake rejection at capacity, adoption freeing an animal while keeping
-the kennel, the freed kennel being reused, and an adopter joining the waiting
-list.
+It walks through, in order: creating each animal type (and proving each IS-AN
+Animal), the one-animal-per-kennel rule, setting the capacity, kennels being
+built on demand, intake rejection at capacity, adoption freeing an animal
+while keeping the kennel, the freed kennel being reused, and the waiting list
+(joining it, and an arriving animal fulfilling it).
 
 ### 2. Interactive console app
 
@@ -122,7 +131,7 @@ Clicking a waiting-list row opens a dialog naming the adopters in line.
 python3 -m unittest discover -s tests -v
 ```
 
-**50 tests, all passing.** They verify:
+**54 tests, all passing.** They verify:
 
 - each animal constructor, default arguments, and `__str__` format
 - the one-animal-per-kennel rule, `remove_animal()`, and `is_empty()`
@@ -132,7 +141,7 @@ python3 -m unittest discover -s tests -v
 - waitlisting (including FIFO order) when a type isn't available
 - arriving animals being adopted on arrival by the first waitlisted adopter
 - invalid capacities, unknown types, and blank adopter names being rejected
-- no class uses inheritance
+- Dog, Cat, and Bird each inherit from Animal (and Kennel deliberately does not)
 
 ---
 
@@ -145,15 +154,16 @@ Animal/
 ├── main.py                 # Entry point — launches the GUI
 ├── cli.py                  # Interactive console version
 ├── animals/
-│   ├── dog.py              # Dog  (Name, Age, Breed)
-│   ├── cat.py              # Cat  (Name, Age, Fur Color)
-│   └── bird.py             # Bird (Name, Age, Wingspan)
+│   ├── animal.py           # Animal base class (name, age, __str__)
+│   ├── dog.py              # Dog  IS-AN Animal (+ breed)
+│   ├── cat.py              # Cat  IS-AN Animal (+ fur color)
+│   └── bird.py             # Bird IS-AN Animal (+ wingspan)
 ├── kennel/
 │   └── kennel.py           # Kennel container (has-a animal)
 ├── shelter/
 │   └── shelter.py          # Shelter — capacity, kennel reuse, adoption, waiting list
 ├── tests/
-│   ├── test_animals.py     # Unit tests for Dog / Cat / Bird
+│   ├── test_animals.py     # Unit tests for Animal + Dog / Cat / Bird
 │   ├── test_kennel.py      # Unit tests for Kennel + the one-animal rule
 │   └── test_shelter.py     # Unit tests for capacity, reuse, adoption, waitlist
 ├── gui/                    # Tkinter desktop front end
@@ -172,8 +182,11 @@ Animal/
 
 ## Key design points (good talking points)
 
-- **No inheritance** — every relationship is containment (has-a), shown with
-  aggregation in the UML: Shelter HAS Kennels, a Kennel HAS-A animal.
+- **Inheritance and containment, each where it belongs** — Dog/Cat/Bird ARE
+  Animals (shared `name`/`age`/`__str__` live once in the base class), while
+  Shelter HAS Kennels and a Kennel HAS-AN Animal (aggregation in the UML).
+- **Validation by base class** — Kennel and Shelter accept anything that
+  `isinstance`-checks as an `Animal`, so new subclasses work untouched.
 - **The capacity rule lives in one place** — only `Shelter._build_kennel()`
   can create kennels, so the limit can't be bypassed.
 - **Kennel reuse before construction** — `add_animal()` checks for an empty

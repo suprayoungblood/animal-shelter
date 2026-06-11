@@ -1,28 +1,27 @@
-"""Kennel class — holds a single animal (Dog, Cat, or Bird).
+"""Kennel class — holds a single Animal (Dog, Cat, or Bird).
 
-Containment, not inheritance: a Kennel HAS-A animal.
+Containment, not inheritance: a Kennel HAS-AN Animal. Because every
+animal type inherits from Animal, validation is a single isinstance
+check — new Animal subclasses work here automatically.
 """
-from animals import ANIMAL_TYPES, Bird, Cat, Dog
-
-AllowedAnimal = Dog | Cat | Bird
-ALLOWED_CLASSES = tuple(ANIMAL_TYPES.values())
+from animals import ANIMAL_TYPES, Animal
 
 
-def validate_animal(animal: AllowedAnimal) -> None:
-    """Raise TypeError unless the object is a registered animal type."""
-    if not isinstance(animal, ALLOWED_CLASSES):
+def validate_animal(animal: Animal) -> None:
+    """Raise TypeError unless the object is an Animal subclass instance."""
+    if not isinstance(animal, Animal):
         allowed = ", ".join(ANIMAL_TYPES)
-        raise TypeError(f"Kennel only accepts {allowed} instances.")
+        raise TypeError(f"Kennel only accepts Animal instances ({allowed}).")
 
 
 class Kennel:
     """A kennel that contains at most one animal."""
 
-    def __init__(self, animal: AllowedAnimal | None = None):
+    def __init__(self, animal: Animal | None = None):
         """Overloaded constructor via default argument.
 
-        :param animal: A Dog, Cat, or Bird instance (or None for an empty kennel).
-        :raises TypeError: If the provided object is not a Dog, Cat, or Bird.
+        :param animal: An Animal instance (or None for an empty kennel).
+        :raises TypeError: If the provided object is not an Animal.
         """
         if animal is not None:
             validate_animal(animal)
@@ -32,13 +31,13 @@ class Kennel:
         """Return True when no animal occupies the kennel."""
         return self.animal is None
 
-    def add_animal(self, animal: AllowedAnimal) -> None:
+    def add_animal(self, animal: Animal) -> None:
         """Place an animal in the kennel — but only if it is empty.
 
         Enforces the rule that a kennel cannot hold more than one animal.
 
-        :param animal: A Dog, Cat, or Bird instance.
-        :raises TypeError: If the object is not a Dog, Cat, or Bird.
+        :param animal: An Animal instance.
+        :raises TypeError: If the object is not an Animal.
         :raises ValueError: If the kennel already contains an animal.
         """
         validate_animal(animal)
@@ -46,7 +45,7 @@ class Kennel:
             raise ValueError("Cannot add more than one animal to the kennel.")
         self.animal = animal
 
-    def remove_animal(self) -> AllowedAnimal:
+    def remove_animal(self) -> Animal:
         """Remove and return the occupant (used when an animal is adopted).
 
         :return: The animal that was in the kennel.

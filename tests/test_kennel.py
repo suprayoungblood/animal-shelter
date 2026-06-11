@@ -1,7 +1,7 @@
 """Unit tests for the Kennel class."""
 import unittest
 
-from animals import Bird, Cat, Dog
+from animals import Animal, Bird, Cat, Dog
 from kennel import Kennel
 
 
@@ -80,9 +80,19 @@ class TestKennel(unittest.TestCase):
         with self.assertRaises(ValueError):
             Kennel().remove_animal()
 
-    def test_no_inheritance(self):
-        """Kennel inherits only from object — containment, not inheritance."""
+    def test_kennel_uses_containment_not_inheritance(self):
+        """Kennel is not an Animal — it HAS-AN animal (containment)."""
         self.assertEqual(Kennel.__bases__, (object,))
+
+    def test_accepts_any_animal_subclass(self):
+        """Validation is by the Animal base class, not a hard-coded list."""
+
+        class Hamster(Animal):
+            """A new Animal subclass works without touching Kennel."""
+
+        kennel = Kennel()
+        kennel.add_animal(Hamster("Nibbles", 1))
+        self.assertEqual(kennel.get_animal_type(), "Hamster")
 
 
 if __name__ == "__main__":
