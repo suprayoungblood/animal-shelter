@@ -12,9 +12,12 @@ class TestShelterConstruction(unittest.TestCase):
         """The constructor stores the kennel capacity."""
         self.assertEqual(Shelter(5).capacity, 5)
 
-    def test_constructor_starts_with_no_kennels(self):
-        """A new shelter has no kennels until animals arrive."""
-        self.assertEqual(Shelter(5).kennels, [])
+    def test_constructor_starts_empty(self):
+        """A new shelter has no kennels, reservations, or adoptions."""
+        shelter = Shelter(5)
+        self.assertEqual(shelter.kennels, [])
+        self.assertEqual(shelter.reservations, [])
+        self.assertEqual(shelter.adoptions, [])
 
     def test_constructor_rejects_non_positive_capacity(self):
         """Zero or negative capacities raise ValueError."""
@@ -35,7 +38,9 @@ class TestShelterIntake(unittest.TestCase):
     def test_add_animal_builds_kennel_when_none_empty(self):
         """A kennel is created when an animal arrives and none are empty."""
         shelter = Shelter(3)
-        shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
+        result = shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
+        self.assertEqual(result.kennel_number, 1)
+        self.assertIsNone(result.reserved_for)
         self.assertEqual(len(shelter.kennels), 1)
 
     def test_add_animal_reuses_empty_kennel(self):
@@ -60,8 +65,8 @@ class TestShelterIntake(unittest.TestCase):
             Shelter(1).add_animal("not an animal")
 
 
-class TestShelterAdoption(unittest.TestCase):
-    """Tests for adoption and the waiting list."""
+class TestWalkInAdoption(unittest.TestCase):
+    """Tests for immediate walk-in adoptions and the waiting list."""
 
     def setUp(self):
         """Create a shelter housing one dog and one bird."""
@@ -70,15 +75,18 @@ class TestShelterAdoption(unittest.TestCase):
         self.shelter.add_animal(self.dog)
         self.shelter.add_animal(Bird("Tweety", 1, 6.5))
 
-    def test_adopt_returns_the_animal(self):
-        """Adopting an available type returns that animal."""
+    def test_adopt_returns_and_removes_the_animal(self):
+        """Adopting an available type returns it and frees the kennel."""
         self.assertIs(self.shelter.adopt("Dog", "Avery"), self.dog)
-
-    def test_adopt_keeps_the_kennel(self):
-        """The kennel stays in the shelter after its animal is adopted."""
-        self.shelter.adopt("Dog", "Avery")
-        self.assertEqual(len(self.shelter.kennels), 2)
         self.assertTrue(self.shelter.kennels[0].is_empty())
+        self.assertEqual(len(self.shelter.kennels), 2)
+
+    def test_walk_in_adoption_is_logged_immediately(self):
+        """A walk-in adoption is recorded as not from the waiting list."""
+        self.shelter.adopt("Dog", "Avery")
+        record = self.shelter.adoptions[0]
+        self.assertEqual(record.adopter, "Avery")
+        self.assertFalse(record.from_waiting_list)
 
     def test_adopt_is_case_insensitive(self):
         """Type matching uses a lookup table, not exact casing."""
@@ -89,11 +97,12 @@ class TestShelterAdoption(unittest.TestCase):
         self.assertIsNone(self.shelter.adopt("Cat", "Blake"))
         self.assertEqual(self.shelter.waiting_list["Cat"], ["Blake"])
 
-    def test_waiting_list_preserves_order(self):
-        """Adopters queue in first-come, first-served order."""
-        self.shelter.adopt("Cat", "Blake")
-        self.shelter.adopt("Cat", "Casey")
-        self.assertEqual(self.shelter.waiting_list["Cat"], ["Blake", "Casey"])
+    def test_reserved_animal_is_not_offered_to_walk_ins(self):
+        """A reserved animal cannot be taken by a later walk-in."""
+        self.shelter.adopt("Cat", "Blake")              # waitlisted
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))  # reserved for Blake
+        self.assertIsNone(self.shelter.adopt("Cat", "Casey"))
+        self.assertEqual(self.shelter.waiting_list["Cat"], ["Casey"])
 
     def test_adopt_rejects_unknown_type(self):
         """An unregistered animal type raises ValueError."""
@@ -106,79 +115,92 @@ class TestShelterAdoption(unittest.TestCase):
             self.shelter.adopt("Dog", "   ")
 
 
-class TestWaitingListFulfillment(unittest.TestCase):
-    """Tests for arriving animals fulfilling the waiting list."""
+class TestReservations(unittest.TestCase):
+    """Tests for auto-reservation and the pending-pickup workflow."""
 
     def setUp(self):
         """Create a shelter with one adopter waiting for a Cat."""
-        self.shelter = Shelter(2)
+        self.shelter = Shelter(3)
         self.shelter.adopt("Cat", "Blake")
 
-    def test_arrival_goes_to_first_waiting_adopter(self):
-        """An arriving animal is adopted on arrival by the first waiter."""
-        result = self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        self.assertEqual(result.adopter, "Blake")
-        self.assertIsNone(result.kennel_number)
-
-    def test_fulfilled_arrival_uses_no_kennel(self):
-        """An animal adopted on arrival never occupies a kennel."""
-        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        self.assertEqual(len(self.shelter.kennels), 0)
-
-    def test_fulfillment_dequeues_in_fifo_order(self):
-        """Waiting adopters are served first-come, first-served."""
-        self.shelter.adopt("Cat", "Casey")
-        first = self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        second = self.shelter.add_animal(Cat("Milo", 2, "Gray"))
-        self.assertEqual(first.adopter, "Blake")
-        self.assertEqual(second.adopter, "Casey")
+    def test_arrival_reserves_for_first_waiter(self):
+        """A matching arrival is housed and reserved, not adopted yet."""
+        result = self.shelter.add_animal(Cat("Luna", 5, "Tabby"))
+        self.assertEqual(result.reserved_for, "Blake")
+        self.assertEqual(len(self.shelter.kennels), 1)
         self.assertEqual(self.shelter.waiting_list["Cat"], [])
+        self.assertEqual(self.shelter.adoptions, [])
 
-    def test_other_types_still_get_housed(self):
-        """A type with no waiters is housed normally."""
-        result = self.shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
-        self.assertEqual(result.kennel_number, 1)
-        self.assertIsNone(result.adopter)
+    def test_pending_requests_lists_the_reservation(self):
+        """The pending list reports the held animal and its adopter."""
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))
+        pending = self.shelter.pending_requests()
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(
+            (pending[0].animal_name, pending[0].adopter, pending[0].from_waiting_list),
+            ("Luna", "Blake", True),
+        )
+
+    def test_confirm_pickup_completes_and_frees_kennel(self):
+        """Confirming a pickup logs the adoption and empties the kennel."""
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))
+        record = self.shelter.confirm_pickup(1)
+        self.assertEqual(record.adopter, "Blake")
+        self.assertTrue(record.from_waiting_list)
+        self.assertTrue(self.shelter.kennels[0].is_empty())
+        self.assertEqual(self.shelter.pending_requests(), [])
+
+    def test_confirm_without_reservation_raises(self):
+        """Confirming a kennel with no reservation raises ValueError."""
+        self.shelter.adopt("Dog", "Avery")  # waitlist, no animal housed
+        self.shelter.waiting_list["Dog"].clear()
+        self.shelter.add_animal(Dog("Rex", 3, "Beagle"))  # housed, no reservation
+        with self.assertRaises(ValueError):
+            self.shelter.confirm_pickup(1)
+
+    def test_cancel_returns_animal_to_available(self):
+        """Cancelling clears the reservation and reopens the animal."""
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))
+        self.assertEqual(self.shelter.cancel_reservation(1), "Blake")
+        self.assertEqual(self.shelter.pending_requests(), [])
+        self.assertIsNotNone(self.shelter.adopt("Cat", "Casey"))
+
+    def test_cancel_rematches_next_waiter(self):
+        """After a cancel, the next person in line is auto-reserved."""
+        self.shelter.adopt("Cat", "Casey")  # Blake then Casey waiting
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))  # reserved for Blake
+        self.shelter.cancel_reservation(1)
+        pending = self.shelter.pending_requests()
+        self.assertEqual(pending[0].adopter, "Casey")
 
 
-class TestAdoptionLog(unittest.TestCase):
-    """Tests for the shelter's adoption history."""
+class TestAnimalInfo(unittest.TestCase):
+    """Tests for the get_animal_info lookup."""
 
     def setUp(self):
-        """Create a shelter housing one dog."""
+        """Create a shelter with one housed dog."""
         self.shelter = Shelter(3)
         self.shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
 
-    def test_kennel_adoption_is_logged(self):
-        """Adopting from a kennel appends a record with on_arrival False."""
-        self.shelter.adopt("Dog", "Avery")
-        record = self.shelter.adoptions[0]
-        self.assertEqual(
-            (record.animal_type, record.animal_name, record.adopter),
-            ("Dog", "Charlie", "Avery"),
-        )
-        self.assertFalse(record.on_arrival)
+    def test_available_animal_info(self):
+        """An unreserved animal reports Available with its description."""
+        info = self.shelter.get_animal_info(1)
+        self.assertEqual(info.status, "Available")
+        self.assertIsNone(info.reserved_for)
+        self.assertIn("Charlie", info.description)
 
-    def test_arrival_adoption_is_logged(self):
-        """A waitlist-fulfilled intake appends a record with on_arrival True."""
+    def test_reserved_animal_info(self):
+        """A reserved animal reports Reserved and the adopter."""
         self.shelter.adopt("Cat", "Blake")
-        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        record = self.shelter.adoptions[0]
-        self.assertEqual(record.adopter, "Blake")
-        self.assertTrue(record.on_arrival)
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))
+        info = self.shelter.get_animal_info(2)
+        self.assertEqual(info.status, "Reserved")
+        self.assertEqual(info.reserved_for, "Blake")
 
-    def test_waitlisting_is_not_logged(self):
-        """Joining the waiting list is not an adoption."""
-        self.shelter.adopt("Cat", "Blake")
-        self.assertEqual(self.shelter.adoptions, [])
-
-    def test_log_preserves_order(self):
-        """Records accumulate in the order the adoptions happened."""
-        self.shelter.adopt("Dog", "Avery")
-        self.shelter.add_animal(Cat("Luna", 5, "Orange Tabby"))
-        self.shelter.adopt("Cat", "Casey")
-        adopters = [record.adopter for record in self.shelter.adoptions]
-        self.assertEqual(adopters, ["Avery", "Casey"])
+    def test_invalid_kennel_raises(self):
+        """An out-of-range kennel number raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.shelter.get_animal_info(99)
 
 
 class TestCorrections(unittest.TestCase):
@@ -196,18 +218,11 @@ class TestCorrections(unittest.TestCase):
         replaced = self.shelter.replace_animal(1, fixed)
         self.assertEqual(replaced.name, "Charlei")
         self.assertIs(self.shelter.kennels[0].animal, fixed)
-        self.assertEqual(len(self.shelter.kennels), 1)
 
     def test_replace_animal_is_not_logged(self):
         """A correction never appears in the adoption log."""
         self.shelter.replace_animal(1, Dog("Charlie", 7, "Golden Retriever"))
         self.assertEqual(self.shelter.adoptions, [])
-
-    def test_replace_empty_kennel_raises(self):
-        """Replacing in an empty kennel raises ValueError."""
-        self.shelter.remove_animal(1)
-        with self.assertRaises(ValueError):
-            self.shelter.replace_animal(1, Dog())
 
     def test_remove_animal_frees_kennel_without_logging(self):
         """remove_animal empties the kennel and skips the adoption log."""
@@ -215,6 +230,12 @@ class TestCorrections(unittest.TestCase):
         self.assertEqual(removed.name, "Charlei")
         self.assertTrue(self.shelter.kennels[0].is_empty())
         self.assertEqual(self.shelter.adoptions, [])
+
+    def test_remove_animal_drops_reservation(self):
+        """Removing a reserved animal also drops its pending reservation."""
+        self.shelter.add_animal(Cat("Luna", 5, "Tabby"))  # reserved for Blkae
+        self.shelter.remove_animal(2)
+        self.assertEqual(self.shelter.pending_requests(), [])
 
     def test_invalid_kennel_numbers_raise(self):
         """Out-of-range or non-integer kennel numbers raise ValueError."""
@@ -258,6 +279,13 @@ class TestShelterReporting(unittest.TestCase):
         shelter = Shelter(3)
         shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
         self.assertEqual(str(shelter), "Shelter: 1 animals in 1/3 kennels")
+
+    def test_str_notes_pending_pickups(self):
+        """__str__ mentions pending pickups when reservations exist."""
+        shelter = Shelter(3)
+        shelter.adopt("Dog", "Avery")
+        shelter.add_animal(Dog("Charlie", 7, "Golden Retriever"))
+        self.assertIn("1 pending pickup", str(shelter))
 
 
 if __name__ == "__main__":

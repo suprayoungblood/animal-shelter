@@ -1,8 +1,8 @@
-"""Kennel list widget — Treeview of all kennels (occupied and empty).
+"""Kennel list widget — Treeview of all kennels with status and controls.
 
-Animals leave the shelter through adoption; the Edit and Remove controls
-here exist to correct data-entry mistakes. The kennel itself always
-stays in the shelter for reuse.
+Shows each kennel's occupant and whether it is available, reserved for a
+pending pickup, or empty. Edit and Remove correct data-entry mistakes;
+Process Requests opens the pending-pickup workflow.
 """
 from __future__ import annotations
 
@@ -10,18 +10,20 @@ from tkinter import ttk
 from typing import Callable
 
 from gui.styles import PAD
-from kennel import Kennel
+from shelter import Shelter
 
-COLUMNS = ("number", "type", "details")
+COLUMNS = ("number", "type", "status", "details")
 COLUMN_HEADINGS = {
     "number":  "#",
-    "type":    "Animal Type",
+    "type":    "Type",
+    "status":  "Status",
     "details": "Details",
 }
 COLUMN_WIDTHS = {
-    "number":  40,
-    "type":    110,
-    "details": 380,
+    "number":  36,
+    "type":    80,
+    "status":  150,
+    "details": 320,
 }
 
 
@@ -33,43 +35,44 @@ class KennelList(ttk.LabelFrame):
         parent,
         on_edit: Callable[[int], None],
         on_remove: Callable[[int], None],
+        on_process: Callable[[], None],
     ):
         """Render the list.
 
         :param parent: Tk parent widget.
-        :param on_edit: Callback invoked with the 1-based kennel number to edit.
-        :param on_remove: Callback invoked with the 1-based kennel number
-            whose animal should be removed (data fix).
+        :param on_edit: Callback with the 1-based kennel number to edit.
+        :param on_remove: Callback with the 1-based kennel number to clear.
+        :param on_process: Callback to open the pending-requests workflow.
         """
         super().__init__(parent, text="  Kennels  ", style="Card.TLabelframe")
         self._on_edit = on_edit
         self._on_remove = on_remove
+        self._on_process = on_process
         self._build()
 
     def _build(self) -> None:
         """Construct the Treeview, scrollbar, and action buttons."""
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
+        for col in range(3):
+            self.columnconfigure(col, weight=1)
         self.rowconfigure(0, weight=1)
         self._tree = self._build_tree()
         scroll = ttk.Scrollbar(self, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=scroll.set)
-        self._tree.grid(row=0, column=0, columnspan=2, sticky="nsew",
+        self._tree.grid(row=0, column=0, columnspan=3, sticky="nsew",
                         padx=(PAD, 0), pady=PAD)
-        scroll.grid(row=0, column=2, sticky="ns", padx=(0, PAD), pady=PAD)
+        scroll.grid(row=0, column=3, sticky="ns", padx=(0, PAD), pady=PAD)
         ttk.Button(
-            self,
-            text="Edit Selected",
-            style="Accent.TButton",
+            self, text="Edit Selected", style="Accent.TButton",
             command=lambda: self._forward_selection(self._on_edit),
         ).grid(row=1, column=0, sticky="ew", padx=(PAD, 4), pady=(0, PAD))
         ttk.Button(
-            self,
-            text="Remove Selected",
-            style="Danger.TButton",
+            self, text="Remove Selected", style="Danger.TButton",
             command=lambda: self._forward_selection(self._on_remove),
-        ).grid(row=1, column=1, columnspan=2, sticky="ew",
-               padx=(4, PAD), pady=(0, PAD))
+        ).grid(row=1, column=1, sticky="ew", padx=4, pady=(0, PAD))
+        ttk.Button(
+            self, text="Process Requests", style="Accent.TButton",
+            command=lambda: self._on_process(),
+        ).grid(row=1, column=2, sticky="ew", padx=(4, PAD), pady=(0, PAD))
 
     def _build_tree(self) -> ttk.Treeview:
         """Create and configure the Treeview widget."""
@@ -89,16 +92,18 @@ class KennelList(ttk.LabelFrame):
         )
         return tree
 
-    def refresh(self, kennels: list[Kennel]) -> None:
-        """Redraw the list from the given kennels collection."""
+    def refresh(self, shelter: Shelter) -> None:
+        """Redraw the list from the shelter's kennels and reservations."""
         self._tree.delete(*self._tree.get_children())
-        for number, kennel in enumerate(kennels, start=1):
+        for number, kennel in enumerate(shelter.kennels, start=1):
+            info = shelter.get_animal_info(number)
+            status = info.status
+            if info.reserved_for is not None:
+                status = f"Reserved → {info.reserved_for}"
             details = "—" if kennel.is_empty() else str(kennel.animal)
             self._tree.insert(
-                "",
-                "end",
-                iid=str(number),
-                values=(number, kennel.get_animal_type(), details),
+                "", "end", iid=str(number),
+                values=(number, kennel.get_animal_type(), status, details),
             )
 
     def _forward_selection(self, callback: Callable[[int], None]) -> None:

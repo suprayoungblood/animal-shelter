@@ -1,11 +1,12 @@
-"""Animal Shelter — console entry point.
+"""Animal Shelter — console entry point (the main driver).
 
-Interactive console app:
-  - Create a Dog, Cat, or Bird and add it to the shelter
-  - Animals reuse empty kennels; new kennels are built up to capacity
-  - View all kennels (occupied and empty)
-  - Adopt an animal by type; missing types place the adopter on a waiting list
-  - View the waiting list
+Menu-driven console app matching the assignment's six options:
+  1. Add Animal
+  2. Remove Animal (Adoption)
+  3. Get Animal Information
+  4. Process Adoption Requests (if new animals arrive)
+  5. View Adopters Waiting List
+  6. Exit
 """
 from typing import Callable
 
@@ -60,171 +61,117 @@ ANIMAL_BUILDERS: dict[str, Callable[[], object]] = {
 }
 
 
-def add_animal(shelter: Shelter, animal_type: str) -> None:
-    """Build an animal and take it into the shelter."""
-    title(f"New {animal_type} Intake")
-    animal = ANIMAL_BUILDERS[animal_type]()
-    result = shelter.add_animal(animal)
-    if result.adopter is not None:
-        success(
-            f"{animal_type} '{animal.name}' adopted on arrival by "
-            f"waitlisted adopter '{result.adopter}'."
-        )
-    else:
-        success(
-            f"{animal_type} '{animal.name}' placed in kennel "
-            f"#{result.kennel_number}."
-        )
-    info(str(shelter))
-
-
-def view_kennels(shelter: Shelter) -> None:
-    """Print every kennel and the type of animal it holds."""
-    title("All Kennels")
-    info(str(shelter))
-    if not shelter.kennels:
-        info("No kennels yet. Add an animal from the main menu.")
-        return
-    for index, kennel in enumerate(shelter.kennels, start=1):
-        print(f"  #{index} | Animal Type: {kennel.get_animal_type()}")
-        print(f"       {kennel}")
-        divider()
-
-
 def prompt_animal_type() -> str:
     """Prompt for one of the registered animal types. Atomic helper."""
     type_menu = {str(i): name for i, name in enumerate(ANIMAL_TYPES, start=1)}
     return type_menu[prompt_choice("Which animal type?", type_menu)]
 
 
+def add_animal(shelter: Shelter) -> None:
+    """Option 1: build an animal and take it into the shelter."""
+    title("Add Animal")
+    animal_type = prompt_animal_type()
+    animal = ANIMAL_BUILDERS[animal_type]()
+    result = shelter.add_animal(animal)
+    if result.reserved_for is not None:
+        success(
+            f"{animal_type} '{animal.name}' housed in kennel "
+            f"#{result.kennel_number} and reserved for waiting adopter "
+            f"'{result.reserved_for}' (pending pickup)."
+        )
+    else:
+        success(
+            f"{animal_type} '{animal.name}' housed in kennel "
+            f"#{result.kennel_number}."
+        )
+    info(str(shelter))
+
+
 def adopt_animal(shelter: Shelter) -> None:
-    """Adopt an animal by type, or waitlist the adopter when unavailable."""
-    title("Adopt an Animal")
+    """Option 2: walk-in adoption, or join the waiting list if unavailable."""
+    title("Remove Animal (Adoption)")
     animal_type = prompt_animal_type()
     adopter = prompt_text("Adopter name")
     animal = shelter.adopt(animal_type, adopter)
     if animal is None:
         info(
-            f"No {animal_type} is in the shelter right now. "
-            f"'{adopter}' was added to the {animal_type} waiting list."
+            f"No {animal_type} is available right now. '{adopter}' was "
+            f"added to the {animal_type} waiting list."
         )
         return
     success(f"'{adopter}' adopted {animal_type} '{animal.name}'. Kennel freed.")
 
 
+def get_animal_information(shelter: Shelter) -> None:
+    """Option 3: show every kennel's occupant and status."""
+    title("Get Animal Information")
+    info(str(shelter))
+    if not shelter.kennels:
+        info("No animals in the shelter yet.")
+        return
+    for number in range(1, len(shelter.kennels) + 1):
+        snapshot = shelter.get_animal_info(number)
+        held = f" (reserved for {snapshot.reserved_for})" if snapshot.reserved_for else ""
+        print(f"  #{snapshot.kennel_number} | {snapshot.status}{held}")
+        print(f"       {snapshot.description}")
+        divider()
+
+
+def process_adoption_requests(shelter: Shelter) -> None:
+    """Option 4: confirm or cancel pending pickups from the waiting list."""
+    title("Process Adoption Requests")
+    pending = shelter.pending_requests()
+    if not pending:
+        info("No pending adoption requests.")
+        return
+    for request in pending:
+        print(
+            f"  Kennel #{request.kennel_number}: {request.animal_type} "
+            f"'{request.animal_name}' reserved for {request.adopter}"
+        )
+    divider()
+    number = prompt_int(
+        "Kennel number to process", minimum=1, maximum=len(shelter.kennels)
+    )
+    action = prompt_choice(
+        "Action", {"1": "Confirm pickup", "2": "Cancel reservation"}
+    )
+    if action == "1":
+        record = shelter.confirm_pickup(number)
+        success(
+            f"{record.animal_type} '{record.animal_name}' picked up by "
+            f"{record.adopter}. Kennel #{number} is now free."
+        )
+        return
+    adopter = shelter.cancel_reservation(number)
+    info(f"Reservation for '{adopter}' on kennel #{number} cancelled.")
+
+
 def view_waiting_list(shelter: Shelter) -> None:
-    """Print every animal type's waiting list."""
-    title("Waiting List")
+    """Option 5: print every animal type's waiting list."""
+    title("Adopters Waiting List")
     for animal_type, adopters in shelter.waiting_list.items():
-        names = ", ".join(adopters) if adopters else "(empty)"
+        names = ", ".join(adopters) if adopters else "(none waiting)"
         print(f"  {animal_type}: {names}")
     divider()
 
 
-def view_adoption_log(shelter: Shelter) -> None:
-    """Print every completed adoption, oldest first."""
-    title("Adoption Log")
-    if not shelter.adoptions:
-        info("No adoptions yet.")
-        return
-    for index, record in enumerate(shelter.adoptions, start=1):
-        how = "on arrival" if record.on_arrival else "from a kennel"
-        print(
-            f"  {index}. {record.animal_type} '{record.animal_name}' "
-            f"adopted by {record.adopter} ({how})"
-        )
-    divider()
+MENU = {
+    "1": "Add Animal",
+    "2": "Remove Animal (Adoption)",
+    "3": "Get Animal Information",
+    "4": "Process Adoption Requests",
+    "5": "View Adopters Waiting List",
+    "6": "Exit",
+}
 
-
-def prompt_occupied_kennel(shelter: Shelter, purpose: str) -> int:
-    """Show the kennels and prompt for an occupied kennel number.
-
-    :return: The 1-based kennel number, or 0 when none are occupied.
-    """
-    if shelter.occupied_count() == 0:
-        info(f"No animals to {purpose}.")
-        return 0
-    view_kennels(shelter)
-    return prompt_int(
-        f"Kennel number to {purpose}", minimum=1, maximum=len(shelter.kennels)
-    )
-
-
-def edit_animal(shelter: Shelter) -> None:
-    """Re-enter an animal's details to correct a data-entry mistake."""
-    title("Edit an Animal")
-    number = prompt_occupied_kennel(shelter, "edit")
-    if number == 0:
-        return
-    animal_type = shelter.kennels[number - 1].get_animal_type()
-    if animal_type == "Empty":
-        error(f"Kennel #{number} is empty.")
-        return
-    info(f"Re-enter the details for the {animal_type} in kennel #{number}.")
-    replaced = shelter.replace_animal(number, ANIMAL_BUILDERS[animal_type]())
-    success(f"Kennel #{number} updated (was '{replaced.name}').")
-
-
-def remove_animal(shelter: Shelter) -> None:
-    """Remove a mistakenly added animal (not logged as an adoption)."""
-    title("Remove an Animal (data fix)")
-    number = prompt_occupied_kennel(shelter, "remove")
-    if number == 0:
-        return
-    removed = shelter.remove_animal(number)
-    success(
-        f"Removed {type(removed).__name__} '{removed.name}' from kennel "
-        f"#{number}. Not logged as an adoption."
-    )
-
-
-def manage_waiting_list(shelter: Shelter) -> None:
-    """Rename or remove a waitlisted adopter."""
-    title("Manage Waiting List")
-    view_waiting_list(shelter)
-    animal_type = prompt_animal_type()
-    names = shelter.waiting_list[animal_type]
-    if not names:
-        info(f"No one is waiting for a {animal_type}.")
-        return
-    position = prompt_int("Position in line", minimum=1, maximum=len(names))
-    action = prompt_choice(
-        f"What about '{names[position - 1]}'?",
-        {"1": "Rename", "2": "Remove"},
-    )
-    if action == "1":
-        new_name = prompt_text("Corrected name")
-        shelter.rename_waiting_adopter(animal_type, position, new_name)
-        success(f"Position {position} renamed to '{new_name}'.")
-        return
-    removed = shelter.remove_waiting_adopter(animal_type, position)
-    success(f"Removed '{removed}' from the {animal_type} waiting list.")
-
-
-def build_actions() -> dict[str, tuple[str, Callable[[Shelter], None]]]:
-    """Assemble the menu key -> (label, action) table dynamically."""
-    actions: dict[str, tuple[str, Callable[[Shelter], None]]] = {}
-    for animal_type in ANIMAL_BUILDERS:
-        key = str(len(actions) + 1)
-        actions[key] = (
-            f"Add a {animal_type} to the shelter",
-            lambda s, t=animal_type: add_animal(s, t),
-        )
-    for label, action in (
-        ("View all kennels", view_kennels),
-        ("Adopt an animal", adopt_animal),
-        ("Edit an animal (data fix)", edit_animal),
-        ("Remove an animal (data fix)", remove_animal),
-        ("View waiting list", view_waiting_list),
-        ("Manage waiting list", manage_waiting_list),
-        ("View adoption log", view_adoption_log),
-    ):
-        actions[str(len(actions) + 1)] = (label, action)
-    return actions
-
-
-ACTIONS = build_actions()
-MENU = {key: label for key, (label, _) in ACTIONS.items()} | {"q": "Quit"}
+ACTIONS: dict[str, Callable[[Shelter], None]] = {
+    "1": add_animal,
+    "2": adopt_animal,
+    "3": get_animal_information,
+    "4": process_adoption_requests,
+    "5": view_waiting_list,
+}
 
 
 def show_menu(shelter: Shelter) -> str:
@@ -232,7 +179,7 @@ def show_menu(shelter: Shelter) -> str:
     clear_screen()
     banner("ANIMAL SHELTER MANAGER")
     info(str(shelter))
-    return prompt_choice("Main Menu", MENU)
+    return prompt_choice("Shelter Menu", MENU)
 
 
 def create_shelter() -> Shelter:
@@ -240,7 +187,7 @@ def create_shelter() -> Shelter:
     banner("ANIMAL SHELTER MANAGER")
     info("First, set how many kennels this shelter can hold.")
     capacity = prompt_int(
-        "Shelter capacity (max kennels)",
+        "Enter shelter capacity",
         minimum=CAPACITY_MIN,
         maximum=CAPACITY_MAX,
     )
@@ -252,11 +199,11 @@ def run() -> None:
     shelter = create_shelter()
     while True:
         choice = show_menu(shelter)
-        if choice == "q":
+        if choice == "6":
             success("Goodbye!")
             return
         try:
-            ACTIONS[choice][1](shelter)
+            ACTIONS[choice](shelter)
         except (TypeError, ValueError) as exc:
             error(str(exc))
         pause()

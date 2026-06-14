@@ -9,6 +9,7 @@ from gui.adoption import AdoptionForm, WaitingListView
 from gui.adoption_log import AdoptionLogView
 from gui.forms import AnimalForm, EditAnimalModal
 from gui.kennel_list import KennelList
+from gui.requests import PendingRequestsModal
 from gui.styles import FONTS, PAD, PALETTE, WINDOW_SIZE, apply_theme
 from shelter import Shelter
 
@@ -82,7 +83,10 @@ class AnimalShelterApp(tk.Tk):
         column.rowconfigure(1, weight=1)
         column.rowconfigure(2, weight=1)
         self._kennel_list = KennelList(
-            column, on_edit=self._handle_edit, on_remove=self._handle_remove
+            column,
+            on_edit=self._handle_edit,
+            on_remove=self._handle_remove,
+            on_process=self._handle_process_requests,
         )
         self._waiting_view = WaitingListView(
             column,
@@ -110,7 +114,7 @@ class AnimalShelterApp(tk.Tk):
 
     def _refresh(self) -> None:
         """Redraw every list from the shelter's current state."""
-        self._kennel_list.refresh(self._shelter.kennels)
+        self._kennel_list.refresh(self._shelter)
         self._waiting_view.refresh(self._shelter.waiting_list)
         self._log_view.refresh(self._shelter.adoptions)
 
@@ -123,10 +127,11 @@ class AnimalShelterApp(tk.Tk):
             return
         self._refresh()
         animal_type = type(animal).__name__
-        if result.adopter is not None:
+        if result.reserved_for is not None:
             self._status_var.set(
-                f"{animal_type} '{animal.name}' adopted on arrival by "
-                f"waitlisted adopter '{result.adopter}'. {self._shelter}"
+                f"{animal_type} '{animal.name}' housed in kennel "
+                f"#{result.kennel_number} and reserved for "
+                f"'{result.reserved_for}' (pending pickup). {self._shelter}"
             )
             return
         self._status_var.set(
@@ -166,6 +171,32 @@ class AnimalShelterApp(tk.Tk):
         self._status_var.set(
             f"Removed {type(removed).__name__} '{removed.name}' from kennel "
             f"#{kennel_number} (data fix, not an adoption)."
+        )
+
+    def _handle_process_requests(self) -> None:
+        """Open the pending-pickup workflow."""
+        PendingRequestsModal(
+            self,
+            self._shelter.pending_requests(),
+            on_confirm=self._confirm_pickup,
+            on_cancel=self._cancel_reservation,
+        )
+
+    def _confirm_pickup(self, kennel_number: int) -> None:
+        """Finalize a pending pickup and refresh."""
+        record = self._shelter.confirm_pickup(kennel_number)
+        self._refresh()
+        self._status_var.set(
+            f"{record.animal_type} '{record.animal_name}' picked up by "
+            f"{record.adopter}. Kennel #{kennel_number} is now free."
+        )
+
+    def _cancel_reservation(self, kennel_number: int) -> None:
+        """Cancel a pending pickup and refresh."""
+        adopter = self._shelter.cancel_reservation(kennel_number)
+        self._refresh()
+        self._status_var.set(
+            f"Reservation for '{adopter}' on kennel #{kennel_number} cancelled."
         )
 
     def _handle_waiting_rename(

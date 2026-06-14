@@ -19,8 +19,8 @@ LOG_WIDTHS = {
 }
 LOG_ROWS_SHOWN = 4
 HOW_LABELS = {
-    True:  "On arrival",
-    False: "From kennel",
+    True:  "From waiting list",
+    False: "Walk-in",
 }
 
 
@@ -61,5 +61,5 @@ class AdoptionLogView(ttk.LabelFrame):
         self._tree.delete(*self._tree.get_children())
         for record in reversed(adoptions):
             animal = f"{record.animal_type} '{record.animal_name}'"
-            how = HOW_LABELS[record.on_arrival]
+            how = HOW_LABELS[record.from_waiting_list]
             self._tree.insert("", "end", values=(animal, record.adopter, how))
