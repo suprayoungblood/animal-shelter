@@ -16,6 +16,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 DESKTOP = Path.home() / "Desktop" / "Animal_Shelter_Simulator"
 CODE_DIR = DESKTOP / "Code"
 APP_DIR = DESKTOP / "Application"
@@ -64,6 +65,8 @@ CODE_FILES = [
     ROOT / "animals" / "bird.py",
     ROOT / "kennel" / "kennel.py",
     ROOT / "shelter" / "shelter.py",
+    ROOT / "shelter" / "records.py",
+    ROOT / "cli.py",
     ROOT / "tests" / "test_animals.py",
     ROOT / "tests" / "test_kennel.py",
     ROOT / "tests" / "test_shelter.py",
@@ -219,15 +222,30 @@ def main() -> None:
         render_code(path, font, out)
 
     print("Rendering application/output screenshots:")
+    render_terminal(
+        "python3 cli.py",
+        _menu_text(),
+        font,
+        APP_DIR / "01_shelter_menu.png",
+    )
     test_out = run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"])
     render_terminal(
         "python3 -m unittest discover -s tests -v",
         test_out,
         font,
-        APP_DIR / "01_unit_tests.png",
+        APP_DIR / "02_unit_tests.png",
     )
 
     print(f"\nDone. Deliverables in: {DESKTOP}")
+
+
+def _menu_text() -> str:
+    """Build the console driver's start prompt and menu from cli.MENU."""
+    from cli import MENU
+
+    lines = ["Enter shelter capacity: 5", "", "Shelter Menu:", ""]
+    lines += [f"  {key}) {label}" for key, label in MENU.items()]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

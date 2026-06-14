@@ -3,7 +3,7 @@
 Captures the exact window region (with the window raised to the front) so no
 desktop, dock, menu bar, browser bookmarks, or other apps appear in the image.
 
-Output: ~/Desktop/Animal_Shelter_Simulator/Application/02_gui_front_end.png
+Output: ~/Desktop/Animal_Shelter_Simulator/Application/03_gui_front_end.png
 
 Run with:
     python3 scripts/capture_gui.py
@@ -23,7 +23,7 @@ OUT = (
     / "Desktop"
     / "Animal_Shelter_Simulator"
     / "Application"
-    / "02_gui_front_end.png"
+    / "03_gui_front_end.png"
 )
 
 
@@ -45,14 +45,18 @@ def _shoot(app: AnimalShelterApp) -> None:
 
 def main() -> None:
     app = AnimalShelterApp()
-    # Populate every panel: housed animals, an adoption in the log,
-    # and a waiting-list entry.
-    app._handle_add(Dog("Charlie", 7, "Golden Retriever"))
-    app._handle_add(Cat("Luna", 5, "Orange Tabby"))
-    app._handle_add(Bird("Tweety", 1, 6.5))
-    app._handle_adopt("Cat", "Avery")
-    app._handle_add(Dog("Rex", 3, "Beagle"))
-    app._handle_adopt("Cat", "Blake")
+    # Populate every panel to show the two-phase workflow:
+    #   - available animals housed in kennels
+    #   - a reserved animal held as a pending pickup
+    #   - someone still waiting on the list
+    #   - a completed, time-stamped adoption in the log
+    app._handle_add(Dog("Charlie", 7, "Golden Retriever"))   # kennel 1, available
+    app._handle_add(Cat("Luna", 5, "Orange Tabby"))          # kennel 2
+    app._handle_add(Bird("Tweety", 1, 6.5))                  # kennel 3, available
+    app._handle_adopt("Cat", "Avery")                        # walk-in: Luna adopted
+    app._handle_adopt("Cat", "Blake")                        # no cat: Blake waitlisted
+    app._handle_add(Cat("Milo", 2, "Gray"))                  # reused kennel 2, reserved for Blake
+    app._handle_adopt("Cat", "Dana")                         # Milo reserved: Dana waitlisted
     app.geometry("980x640+120+120")
     app.update()
     app.lift()
