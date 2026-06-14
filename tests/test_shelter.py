@@ -1,5 +1,6 @@
 """Unit tests for the Shelter class."""
 import unittest
+from datetime import datetime
 
 from animals import Bird, Cat, Dog
 from shelter import Shelter
@@ -87,6 +88,14 @@ class TestWalkInAdoption(unittest.TestCase):
         record = self.shelter.adoptions[0]
         self.assertEqual(record.adopter, "Avery")
         self.assertFalse(record.from_waiting_list)
+
+    def test_adoption_record_is_timestamped(self):
+        """Each logged adoption carries a datetime of when it happened."""
+        before = datetime.now()
+        self.shelter.adopt("Dog", "Avery")
+        record = self.shelter.adoptions[0]
+        self.assertIsInstance(record.timestamp, datetime)
+        self.assertGreaterEqual(record.timestamp, before)
 
     def test_adopt_is_case_insensitive(self):
         """Type matching uses a lookup table, not exact casing."""

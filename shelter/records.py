@@ -3,6 +3,7 @@
 Kept as immutable NamedTuples so callers (the CLI and GUI) get
 self-documenting results without depending on Shelter internals.
 """
+from datetime import datetime
 from typing import NamedTuple
 
 
@@ -44,6 +45,7 @@ class AdoptionRecord(NamedTuple):
     animal_name: str
     adopter: str
     from_waiting_list: bool
+    timestamp: datetime
 
 
 class Reservation(NamedTuple):

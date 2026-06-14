@@ -6,18 +6,21 @@ from tkinter import ttk
 from gui.styles import PAD
 from shelter import AdoptionRecord
 
-LOG_COLUMNS = ("animal", "adopter", "how")
+LOG_COLUMNS = ("when", "animal", "adopter", "how")
 LOG_HEADINGS = {
+    "when":    "Date / Time",
     "animal":  "Animal",
     "adopter": "Adopted By",
     "how":     "How",
 }
 LOG_WIDTHS = {
-    "animal":  180,
-    "adopter": 140,
-    "how":     110,
+    "when":    130,
+    "animal":  170,
+    "adopter": 120,
+    "how":     130,
 }
 LOG_ROWS_SHOWN = 4
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M"
 HOW_LABELS = {
     True:  "From waiting list",
     False: "Walk-in",
@@ -60,6 +63,9 @@ class AdoptionLogView(ttk.LabelFrame):
         """Redraw the log from the shelter's records, newest first."""
         self._tree.delete(*self._tree.get_children())
         for record in reversed(adoptions):
+            when = record.timestamp.strftime(TIMESTAMP_FORMAT)
             animal = f"{record.animal_type} '{record.animal_name}'"
             how = HOW_LABELS[record.from_waiting_list]
-            self._tree.insert("", "end", values=(animal, record.adopter, how))
+            self._tree.insert(
+                "", "end", values=(when, animal, record.adopter, how)
+            )

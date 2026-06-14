@@ -37,7 +37,7 @@ Use this table to find any assignment requirement in the code.
 | Overloaded constructor / `__str__` (all classes) | `__init__` defaults and `__str__` in each class |
 | **Kennel** holds at most one animal | `kennel/kennel.py` — `add_animal()` raises if occupied |
 | **GetAnimalType** using `__name__` | `Kennel.get_animal_type()` → `type(self.animal).__name__` |
-| Unit tests | `tests/` — 64 tests across animals, kennel, and shelter |
+| Unit tests | `tests/` — 65 tests across animals, kennel, and shelter |
 | Main driver | `main.py` (GUI) and `cli.py` (console) |
 
 ---
@@ -86,7 +86,8 @@ Owns the kennels and enforces every shelter rule:
   pending-pickup workflow. Confirming logs the adoption and frees the kennel;
   cancelling reopens the animal and re-matches the next person in line.
 - **`adoptions`** — every confirmed adoption (walk-in or from the waiting
-  list) is recorded as an `AdoptionRecord`, giving both UIs an adoption log.
+  list) is recorded as a time-stamped `AdoptionRecord`, giving the GUI an
+  adoption log with the date/time, animal, adopter, and how it happened.
 - **Corrections** — `replace_animal()` and `remove_animal()` fix data-entry
   mistakes without touching the adoption log, and `rename_waiting_adopter()` /
   `remove_waiting_adopter()` edit the waiting list while preserving line order.
@@ -133,7 +134,7 @@ in line can be viewed, renamed, or removed.
 python3 -m unittest discover -s tests -v
 ```
 
-**64 tests, all passing.** They verify:
+**65 tests, all passing.** They verify:
 
 - each animal constructor, default arguments, and `__str__` format
 - the one-animal-per-kennel rule, `remove_animal()`, and `is_empty()`
@@ -176,7 +177,7 @@ Animal/
 │   ├── app.py              # Main window
 │   ├── forms.py            # Animal intake form + edit-animal dialog
 │   ├── adoption.py         # Adoption form + waiting list panel + adopters dialog
-│   ├── adoption_log.py     # History of completed adoptions
+│   ├── adoption_log.py     # Time-stamped history of completed adoptions
 │   ├── kennel_list.py      # Kennel list with status + correction controls
 │   ├── requests.py         # Pending-pickup (Process Adoption Requests) dialog
 │   └── styles.py           # Colors / fonts / theme

@@ -5,11 +5,13 @@ Rules enforced here:
     kennels can be created.
   - Incoming animals always reuse an empty kennel when one exists;
     a new kennel is only built when none are empty.
-  - A walk-in adoption removes an available animal immediately;
-    otherwise the adopter joins a per-type waiting list (FIFO).
-  - A new animal whose type has waiting adopters is auto-reserved for
-    the first in line and held as a pending pickup until confirmed.
+  - A walk-in adoption removes an available animal immediately; else the
+    adopter joins a per-type waiting list (FIFO). A new animal whose type
+    has waiting adopters is auto-reserved for the first in line and held
+    as a pending pickup until confirmed.
 """
+from datetime import datetime
+
 from animals import ANIMAL_TYPES, Animal
 from kennel import Kennel
 from kennel.kennel import validate_animal
@@ -120,8 +122,7 @@ class Shelter:
 
         The freed animal is immediately re-matched to the next person
         waiting for its type, if any, so no one in line is skipped.
-
-        :raises ValueError: If the kennel has no pending reservation.
+        Raises ValueError if the kennel has no pending reservation.
         """
         reservation = self._require_reservation(kennel_number)
         self.reservations.remove(reservation)
@@ -130,10 +131,7 @@ class Shelter:
         return reservation.adopter
 
     def get_animal_info(self, kennel_number: int) -> AnimalInfo:
-        """Return a snapshot of one kennel's occupant and status.
-
-        :raises ValueError: If the kennel number is invalid.
-        """
+        """Return a snapshot of one kennel (raises ValueError if invalid)."""
         kennel = self._kennel_at(kennel_number)
         if kennel.is_empty():
             return AnimalInfo(kennel_number, "Empty", None, "Empty")
@@ -201,10 +199,11 @@ class Shelter:
     def _record_adoption(
         self, animal: Animal, adopter: str, from_waiting_list: bool
     ) -> None:
-        """Append a completed adoption to the shelter's log."""
+        """Append a completed adoption to the shelter's log, time-stamped now."""
         self.adoptions.append(
             AdoptionRecord(
-                type(animal).__name__, animal.name, adopter, from_waiting_list
+                type(animal).__name__, animal.name, adopter,
+                from_waiting_list, datetime.now(),
             )
         )
 
